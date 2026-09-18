@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using VideoTube.Data;
 using VideoTube.Models;
 using System.Diagnostics;
+using System.Globalization;
 
 namespace VideoTube.Controllers
 {
@@ -104,10 +105,42 @@ namespace VideoTube.Controllers
 
             process.WaitForExit();
 
+            string duration = "00:00";
+
+            var probeProcess = new Process();
+
+            probeProcess.StartInfo.FileName =
+                @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffprobe.exe";
+
+            probeProcess.StartInfo.Arguments =
+                $"-v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 \"{filePath}\"";
+
+            probeProcess.StartInfo.RedirectStandardOutput = true;
+            probeProcess.StartInfo.UseShellExecute = false;
+            probeProcess.StartInfo.CreateNoWindow = true;
+
+            probeProcess.Start();
+
+            string output =
+                probeProcess.StandardOutput.ReadToEnd();
+
+            probeProcess.WaitForExit();
+
+            if (double.TryParse(
+                    output.Trim(),
+                    CultureInfo.InvariantCulture,
+                    out double seconds))
+            {
+                duration =
+                    TimeSpan.FromSeconds(seconds)
+                            .ToString(@"hh\:mm\:ss");
+            }
+
             var video = new Video
             {
                 Title = model.Title,
                 Description = model.Description,
+                Duration = duration,
                 CategoryId = model.CategoryId,
                 FileName = fileName,
                 ThumbnailFileName = thumbnailFileName,

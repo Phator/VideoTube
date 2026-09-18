@@ -23,5 +23,7 @@ namespace VideoTube.Models
 
         public Category? Category { get; set; }
 
+        public string Duration { get; set; } = "";
+
     }
 }

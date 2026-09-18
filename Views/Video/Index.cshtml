@@ -30,9 +30,19 @@
             <div class="card-body">
 
                 <h5 class="card-title">@video.Title</h5>
+
+            @if (video.Category != null)
+
+            {
                 <p class="text-muted">
-    @video.Category
-</p>
+                @video.Category.Name
+                </p>
+            }
+               
+                <p class="card-text">
+                    Duration: @video.Duration
+                </p>
+
                 <p class="card-text">
                     Views: @video.Views
                 </p>
