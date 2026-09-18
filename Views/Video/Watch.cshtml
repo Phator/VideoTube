@@ -1,25 +1,70 @@
 @model VideoTube.Models.Video
 
-<div class="container mt-4">
+<div class="row">
 
-    <div class="mb-3">
-        <h2>@Model.Title</h2>
-        <p class="text-muted">@Model.Description</p>
+    <!-- Main Video Section -->
+    <div class="col-md-8">
 
-        <small class="text-secondary">
-            Views: @Model.Views
-        </small>
-    </div>
+        <!-- Title -->
+        <h2 class="mb-2">@Model.Title</h2>
 
-    <div class="mb-4">
-        <video width="100%" style="max-width: 900px;" controls>
+        <!-- Metadata -->
+        <div class="text-muted mb-3">
+            @if (Model.Category != null)
+            {
+                <span>@Model.Category.Name</span>
+                <span class="mx-2">•</span>
+            }
+
+            <span>@Model.Duration</span>
+            <span class="mx-2">•</span>
+            <span>@Model.Views Views</span>
+        </div>
+
+        <!-- Video Player -->
+        <video width="100%" controls class="mb-4">
             <source src="/videos/@Model.FileName" type="video/mp4" />
             Your browser does not support HTML5 video.
         </video>
+
+        <!-- Description -->
+        <p class="lead">@Model.Description</p>
+
     </div>
 
-    <a asp-action="Index" class="btn btn-outline-secondary">
-        Back to Videos
-    </a>
+    <!-- Related Videos -->
+    <div class="col-md-4">
+
+        <h4 class="mb-3">Related Videos</h4>
+
+        @foreach (var video in ViewBag.RelatedVideos)
+        {
+            <a asp-action="Watch"
+               asp-route-id="@video.Id"
+               class="text-decoration-none text-dark">
+
+                <div class="card mb-3 shadow-sm">
+
+                    <img src="/thumbnails/@video.ThumbnailFileName"
+                         class="card-img-top"
+                         alt="@video.Title"
+                         style="height: 150px; object-fit: cover;" />
+
+                    <div class="card-body py-2">
+
+                        <h6 class="mb-1">@video.Title</h6>
+
+                        <small class="text-muted">
+                            @video.Duration • @video.Views Views
+                        </small>
+
+                    </div>
+
+                </div>
+
+            </a>
+        }
+
+    </div>
 
 </div>

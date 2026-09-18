@@ -3,6 +3,7 @@ using VideoTube.Data;
 using VideoTube.Models;
 using System.Diagnostics;
 using System.Globalization;
+using Microsoft.EntityFrameworkCore;
 
 namespace VideoTube.Controllers
 {
@@ -157,9 +158,9 @@ namespace VideoTube.Controllers
 
         public IActionResult Watch(int id)
         {
-            var video =
-                _context.Videos.FirstOrDefault(
-                    v => v.Id == id);
+            var video = _context.Videos
+                .Include(v => v.Category)
+                .FirstOrDefault(v => v.Id == id);
 
             if (video == null)
                 return NotFound();
@@ -167,6 +168,15 @@ namespace VideoTube.Controllers
             video.Views++;
 
             _context.SaveChanges();
+
+            ViewBag.RelatedVideos = _context.Videos
+                .Include(v => v.Category)
+                .Where(v =>
+                    v.Id != video.Id &&
+                    v.CategoryId == video.CategoryId)
+                .OrderByDescending(v => v.Views)
+                .Take(5)
+                .ToList();
 
             return View(video);
         }
