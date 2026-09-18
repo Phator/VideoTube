@@ -38,6 +38,11 @@ namespace VideoTube.Controllers
                     v.Category.Name == category);
             }
 
+            ViewBag.PopularVideos = _context.Videos
+                .OrderByDescending(v => v.Views)
+                .Take(5)
+                .ToList();
+
             return View(
                 videos.OrderByDescending(v => v.UploadDate)
                       .ToList());
