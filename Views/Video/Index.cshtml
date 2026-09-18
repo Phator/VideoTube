@@ -1,0 +1,68 @@
+@model IEnumerable<VideoTube.Models.Video>
+
+<!-- Search Bar -->
+<form method="get" class="mb-4">
+    <div class="input-group">
+        <input type="text"
+               name="search"
+               class="form-control"
+               placeholder="Search videos..." />
+
+        <button type="submit" class="btn btn-primary">
+            Search
+        </button>
+    </div>
+</form>
+
+<!-- Video Grid -->
+<div class="row">
+
+@foreach (var video in Model)
+{
+    <div class="col-md-4 mb-3">
+        <div class="card h-100">
+
+            <img src="/thumbnails/@video.ThumbnailFileName"
+                 class="card-img-top"
+                 alt="@video.Title"
+                 style="height:200px; object-fit:cover;" />
+
+            <div class="card-body">
+
+                <h5 class="card-title">@video.Title</h5>
+                <p class="text-muted">
+    @video.Category
+</p>
+                <p class="card-text">
+                    Views: @video.Views
+                </p>
+
+<div class="d-flex gap-2">
+
+    <a asp-action="Watch"
+       asp-route-id="@video.Id"
+       class="btn btn-primary">
+        Watch
+    </a>
+
+    <a asp-action="Edit"
+       asp-route-id="@video.Id"
+       class="btn btn-warning">
+        Edit
+    </a>
+
+    <a asp-action="Delete"
+       asp-route-id="@video.Id"
+       class="btn btn-danger">
+        Delete
+    </a>
+
+</div>
+
+            </div>
+
+        </div>
+    </div>
+}
+
+</div>

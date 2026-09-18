@@ -1,0 +1,25 @@
+@model VideoTube.Models.Video
+
+<div class="container mt-4">
+
+    <div class="mb-3">
+        <h2>@Model.Title</h2>
+        <p class="text-muted">@Model.Description</p>
+
+        <small class="text-secondary">
+            Views: @Model.Views
+        </small>
+    </div>
+
+    <div class="mb-4">
+        <video width="100%" style="max-width: 900px;" controls>
+            <source src="/videos/@Model.FileName" type="video/mp4" />
+            Your browser does not support HTML5 video.
+        </video>
+    </div>
+
+    <a asp-action="Index" class="btn btn-outline-secondary">
+        Back to Videos
+    </a>
+
+</div>

@@ -1,0 +1,66 @@
+@model IEnumerable<VideoTube.Models.Category>
+
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger">
+        @TempData["Error"]
+    </div>
+}
+
+<h2>Manage Categories</h2>
+
+<form asp-action="Create"
+      method="post"
+      class="mb-4">
+
+    <div class="input-group">
+
+        <input type="text"
+               name="name"
+               class="form-control"
+               placeholder="New Category" />
+
+        <button type="submit"
+                class="btn btn-success">
+            Add Category
+        </button>
+
+    </div>
+
+</form>
+
+<table class="table">
+
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th></th>
+        </tr>
+    </thead>
+
+    <tbody>
+
+        @foreach (var category in Model)
+        {
+            <tr>
+
+                <td>
+                    @category.Name
+                </td>
+
+                <td>
+
+                    <a asp-action="Delete"
+                       asp-route-id="@category.Id"
+                       class="btn btn-danger btn-sm">
+                        Delete
+                    </a>
+
+                </td>
+
+            </tr>
+        }
+
+    </tbody>
+
+</table>

@@ -1,0 +1,50 @@
+@model VideoTube.Models.UploadVideoViewModel
+
+<h2>Upload Video</h2>
+
+<form method="post" enctype="multipart/form-data">
+
+    <div>
+        <label asp-for="Title"></label>
+        <input asp-for="Title" />
+    </div>
+
+    <div>
+        <label asp-for="Description"></label>
+        <textarea asp-for="Description"></textarea>
+    </div>
+    <div class="mb-3">
+
+        <label class="form-label">
+            Category
+        </label>
+
+         <select asp-for="CategoryId"
+            class="form-select">
+
+            <option value="">
+            <S></S>elect Category
+         </option>
+
+        @foreach (var category in ViewBag.Categories)
+        {
+            <option value="@category.Id">
+                @category.Name
+            </option>
+        }
+
+    </select>
+
+</div>
+    <div>
+        <label asp-for="VideoFile"></label>
+        <input asp-for="VideoFile" type="file" />
+    </div>
+
+    <br />
+
+    <button type="submit">
+        Upload
+    </button>
+
+</form>
