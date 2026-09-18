@@ -46,3 +46,8 @@ button.accept-policy {
   white-space: nowrap;
   line-height: 60px;
 }
+
+.sticky-sidebar {
+    position: sticky;
+    top: 20px; /* distance from top when scrolling */
+}

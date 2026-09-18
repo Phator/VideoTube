@@ -43,6 +43,11 @@ namespace VideoTube.Controllers
                 .Take(5)
                 .ToList();
 
+            ViewBag.RecentVideos = _context.Videos
+                .OrderByDescending(v => v.UploadDate)
+                .Take(5)
+                .ToList();
+
             return View(
                 videos.OrderByDescending(v => v.UploadDate)
                       .ToList());

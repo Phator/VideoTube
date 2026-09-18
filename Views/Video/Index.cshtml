@@ -14,104 +14,104 @@
     </div>
 </form>
 
-<!-- Video Grid -->
 <div class="row">
 
+    <!-- Main Video Grid -->
     <div class="col-md-9">
-
-@foreach (var video in Model)
-{
-    <div class="col-md-4 mb-3">
-        <div class="card h-100">
-
-            <img src="/thumbnails/@video.ThumbnailFileName"
-                 class="card-img-top"
-                 alt="@video.Title"
-                 style="height:200px; object-fit:cover;" />
-
-            <div class="card-body">
-
-                <h5 class="card-title">@video.Title</h5>
-
-            @if (video.Category != null)
-
+        <div class="row">
+            @foreach (var video in Model)
             {
-                <p class="text-muted">
-                @video.Category.Name
-                </p>
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100">
+
+                        <img src="/thumbnails/@video.ThumbnailFileName"
+                             class="card-img-top"
+                             alt="@video.Title"
+                             style="height:200px; object-fit:cover;" />
+
+                        <div class="card-body">
+
+                            <h5 class="card-title">@video.Title</h5>
+
+                            @if (video.Category != null)
+                            {
+                                <p class="text-muted">@video.Category.Name</p>
+                            }
+
+                            <p class="card-text">Duration: @video.Duration</p>
+                            <p class="card-text">Views: @video.Views</p>
+
+                            <div class="d-flex gap-2">
+                                <a asp-action="Watch"
+                                   asp-route-id="@video.Id"
+                                   class="btn btn-primary">Watch</a>
+
+                                <a asp-action="Edit"
+                                   asp-route-id="@video.Id"
+                                   class="btn btn-warning">Edit</a>
+
+                                <a asp-action="Delete"
+                                   asp-route-id="@video.Id"
+                                   class="btn btn-danger">Delete</a>
+                            </div>
+
+                        </div>
+
+                    </div>
+                </div>
             }
-               
-                <p class="card-text">
-                    Duration: @video.Duration
-                </p>
-
-                <p class="card-text">
-                    Views: @video.Views
-                </p>
-
-<div class="d-flex gap-2">
-
-    <a asp-action="Watch"
-       asp-route-id="@video.Id"
-       class="btn btn-primary">
-        Watch
-    </a>
-
-    <a asp-action="Edit"
-       asp-route-id="@video.Id"
-       class="btn btn-warning">
-        Edit
-    </a>
-
-    <a asp-action="Delete"
-       asp-route-id="@video.Id"
-       class="btn btn-danger">
-        Delete
-    </a>
-
-</div>
-
-            </div>
-
         </div>
     </div>
-}
 
-</div>
-
+    <!-- Sticky Sidebar -->
     <div class="col-md-3">
+        <div class="sticky-sidebar">
 
-        <div class="card">
+            <!-- Most Viewed -->
+            <div class="card mb-4">
+                <div class="card-header bg-danger text-white">
+                    🔥 Most Viewed
+                </div>
 
-            <div class="card-header bg-danger text-white">
-                🔥 Most Viewed
+                <div class="list-group list-group-flush">
+                    @foreach (var video in ViewBag.PopularVideos)
+                    {
+                        <a asp-action="Watch"
+                           asp-route-id="@video.Id"
+                           class="list-group-item list-group-item-action">
+
+                            <strong>@video.Title</strong>
+                            <br />
+                            <small>@video.Views Views</small>
+
+                        </a>
+                    }
+                </div>
             </div>
 
-            <div class="list-group list-group-flush">
+            <!-- Recently Added -->
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    🆕 Recently Added
+                </div>
 
-                @foreach (var video in ViewBag.PopularVideos)
-                {
-                    <a asp-action="Watch"
-                       asp-route-id="@video.Id"
-                       class="list-group-item list-group-item-action">
+                <div class="list-group list-group-flush">
+                    @foreach (var video in ViewBag.RecentVideos)
+                    {
+                        <a asp-action="Watch"
+                           asp-route-id="@video.Id"
+                           class="list-group-item list-group-item-action">
 
-                        <strong>
-                            @video.Title
-                        </strong>
+                            <strong>@video.Title</strong>
+                            <br />
+                            <small>@video.UploadDate.ToString("MM/dd/yyyy")</small>
 
-                        <br />
-
-                        <small>
-                            @video.Views Views
-                        </small>
-
-                    </a>
-                }
-
+                        </a>
+                    }
+                </div>
             </div>
 
         </div>
-
     </div>
 
 </div>
