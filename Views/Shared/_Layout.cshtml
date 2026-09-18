@@ -34,33 +34,72 @@
                 <div class="collapse navbar-collapse"
                      id="navbarNav">
 
-                    <ul class="navbar-nav me-auto">
+<ul class="navbar-nav me-auto">
 
-                        <li class="nav-item">
-                            <a class="nav-link"
-                               asp-controller="Video"
-                               asp-action="Index">
-                                Videos
-                            </a>
-                        </li>
+    <li class="nav-item">
+        <a class="nav-link"
+           asp-controller="Video"
+           asp-action="Index">
+            Videos
+        </a>
+    </li>
 
-                        <li class="nav-item">
-                            <a class="nav-link"
-                               asp-controller="Video"
-                               asp-action="Upload">
-                                Upload
-                            </a>
-                        </li>
+    <li class="nav-item">
+        <a class="nav-link"
+           asp-controller="Video"
+           asp-action="Upload">
+            Upload
+        </a>
+    </li>
 
-                        <li class="nav-item">
-                            <a class="nav-link"
-                               asp-controller="Category"
-                               asp-action="Index">
-                                Categories
-                            </a>
-                        </li>
+    <li class="nav-item">
+        <a class="nav-link"
+           asp-controller="Category"
+           asp-action="Index">
+            Categories
+        </a>
+    </li>
 
-                    </ul>
+</ul>
+
+<ul class="navbar-nav">
+
+    @if (User.Identity?.IsAuthenticated ?? false)
+    {
+        <li class="nav-item">
+            <span class="nav-link">
+                Hello @User.Identity.Name
+            </span>
+        </li>
+
+        <li class="nav-item">
+            <a asp-controller="Account"
+               asp-action="Logout"
+               class="nav-link">
+                Logout
+            </a>
+        </li>
+    }
+    else
+    {
+        <li class="nav-item">
+            <a asp-controller="Account"
+               asp-action="Register"
+               class="nav-link">
+                Register
+            </a>
+        </li>
+
+        <li class="nav-item">
+            <a asp-controller="Account"
+               asp-action="Login"
+               class="nav-link">
+                Login
+            </a>
+        </li>
+    }
+
+</ul>
 
                 </div>
 

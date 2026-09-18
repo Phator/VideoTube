@@ -4,9 +4,11 @@ using VideoTube.Models;
 using System.Diagnostics;
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
 
 namespace VideoTube.Controllers
 {
+    [Authorize]
     public class VideoController : Controller
     {
         private readonly ApplicationDbContext _context;
