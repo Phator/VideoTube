@@ -99,6 +99,18 @@ namespace VideoTube.Controllers
             if (!ModelState.IsValid)
                 return View(model);
 
+            var user =
+            await _userManager.FindByEmailAsync(
+                model.Email);
+
+            if (user?.IsDisabled == true)
+            {
+                ModelState.AddModelError(
+                    "",
+                    "This account has been disabled.");
+
+                return View(model);
+            }
             var result =
                 await _signInManager.PasswordSignInAsync(
                     model.Email,

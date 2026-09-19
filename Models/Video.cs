@@ -25,5 +25,6 @@ namespace VideoTube.Models
 
         public string Duration { get; set; } = "";
 
+        public string UploadedByUserId { get; set; } = "";
     }
 }

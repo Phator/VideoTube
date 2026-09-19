@@ -1,0 +1,56 @@
+@model IEnumerable<VideoTube.Models.WatchProgress>
+
+<h2 class="mb-4">Continue Watching</h2>
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info">
+        No videos to continue.
+    </div>
+}
+else
+{
+    <div class="row">
+
+        @foreach (var item in Model)
+        {
+            var video = item.Video;
+
+            <div class="col-md-4 mb-4">
+
+                <div class="card shadow-sm h-100">
+
+                    <a asp-action="Watch"
+                       asp-route-id="@item.VideoId"
+                       class="thumbnail-wrapper">
+
+                        <img src="/thumbnails/@video.ThumbnailFileName"
+                             class="card-img-top"
+                             alt="@video.Title"
+                             style="height: 180px; object-fit: cover;" />
+
+                    </a>
+
+                    <div class="card-body">
+
+                        <h5 class="card-title">@video.Title</h5>
+
+                        <p class="text-muted mb-2">
+                            Progress: @TimeSpan.FromSeconds(item.CurrentSeconds).ToString(@"hh\:mm\:ss")
+                        </p>
+
+                        <a asp-action="Watch"
+                           asp-route-id="@item.VideoId"
+                           class="btn btn-primary">
+                            Resume
+                        </a>
+
+                    </div>
+
+                </div>
+
+            </div>
+        }
+
+    </div>
+}

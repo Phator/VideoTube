@@ -110,6 +110,7 @@ namespace VideoTube.Controllers
             if (!ModelState.IsValid)
                 return View(model);
 
+            var user = await _userManager.GetUserAsync(User);
             // --- Save Video File ---
             string videoFolder = Path.Combine(_environment.WebRootPath, "videos");
             Directory.CreateDirectory(videoFolder);
@@ -177,7 +178,9 @@ namespace VideoTube.Controllers
                 FileName = fileName,
                 ThumbnailFileName = thumbnailFileName,
                 UploadDate = DateTime.Now,
-                Views = 0
+                Views = 0,
+
+                UploadedByUserId = user!.Id
             };
 
             _context.Videos.Add(video);
@@ -202,6 +205,17 @@ namespace VideoTube.Controllers
             await _context.SaveChangesAsync();
 
             var user = await _userManager.GetUserAsync(User);
+
+            if (user != null)
+            {
+                ViewBag.Progress =
+                    _context.WatchProgress
+                        .Where(p =>
+                            p.UserId == user.Id &&
+                            p.VideoId == id)
+                        .Select(p => p.CurrentSeconds)
+                        .FirstOrDefault();
+            }
 
             ViewBag.IsFavorited = _context.FavoriteVideos
                 .Any(f => f.UserId == user!.Id && f.VideoId == id); // FIXED WARNING
@@ -340,5 +354,94 @@ namespace VideoTube.Controllers
             public int Id { get; set; }
         }
 
+        // ---------------------------------------------------------
+        // Create History page
+        // ---------------------------------------------------------
+        public async Task<IActionResult> History()
+        {
+            var user =
+                await _userManager.GetUserAsync(User);
+
+            if (user == null)
+                return RedirectToAction(
+                    "Login",
+                    "Account");
+
+            var history =
+                _context.WatchHistory
+                    .Where(h => h.UserId == user.Id)
+                    .OrderByDescending(h => h.WatchedDate)
+                    .Select(h => h.Video!)
+                    .Distinct()
+                    .ToList();
+
+            return View(history);
+        }
+
+        // ---------------------------------------------------------
+        // Create Watch Progress page
+        // ---------------------------------------------------------
+        [HttpPost]
+        public async Task<IActionResult> SaveProgress(
+    [FromBody] SaveProgressRequest request)
+        {
+            var user =
+                await _userManager.GetUserAsync(User);
+
+            if (user == null)
+                return Unauthorized();
+
+            var progress =
+                _context.WatchProgress
+                    .FirstOrDefault(p =>
+                        p.UserId == user.Id &&
+                        p.VideoId == request.VideoId);
+
+            if (progress == null)
+            {
+                progress = new WatchProgress
+                {
+                    UserId = user.Id,
+                    VideoId = request.VideoId
+                };
+
+                _context.WatchProgress.Add(progress);
+            }
+
+            progress.CurrentSeconds =
+                request.CurrentSeconds;
+
+            progress.LastUpdated =
+                DateTime.Now;
+
+            await _context.SaveChangesAsync();
+
+            return Ok();
+        }
+
+        public class SaveProgressRequest
+        {
+            public int VideoId { get; set; }
+
+            public int CurrentSeconds { get; set; }
+        }
+
+        // ---------------------------------------------------------
+        // Continue Watching page
+        // ---------------------------------------------------------
+        public async Task<IActionResult> ContinueWatching()
+        {
+            var user =
+                await _userManager.GetUserAsync(User);
+
+            var progress =
+                _context.WatchProgress
+                    .Include(p => p.Video)
+                    .Where(p => p.UserId == user!.Id)
+                    .OrderByDescending(p => p.LastUpdated)
+                    .ToList();
+
+            return View(progress);
+        }
     }
 }

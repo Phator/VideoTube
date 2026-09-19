@@ -22,7 +22,10 @@
         </div>
 
         <!-- Video Player -->
-        <video width="100%" controls class="mb-4">
+        <video id="videoPlayer"
+               width="100%"
+               controls
+               class="mb-4">
             <source src="/videos/@Model.FileName" type="video/mp4" />
             Your browser does not support HTML5 video.
         </video>
@@ -33,21 +36,18 @@
         <!-- Action Buttons -->
         <div class="mt-4 d-flex gap-2">
 
-            <!-- Favorite Toggle -->
             <button id="favoriteBtn"
                     class="btn @(ViewBag.IsFavorited ? "btn-success" : "btn-outline-warning")"
                     onclick="toggleFavorite(@Model.Id)">
                 @(ViewBag.IsFavorited ? "❤️ Favorited" : "⭐ Add to Favorites")
             </button>
 
-            <!-- Edit -->
             <a asp-action="Edit"
                asp-route-id="@Model.Id"
                class="btn btn-primary">
                 ✏️ Edit
             </a>
 
-            <!-- Delete -->
             <a asp-action="Delete"
                asp-route-id="@Model.Id"
                class="btn btn-danger">
@@ -79,13 +79,10 @@
                          style="height: 150px; object-fit: cover;" />
 
                     <div class="card-body py-2">
-
                         <h6 class="mb-1">@video.Title</h6>
-
                         <small class="text-muted">
                             @video.Duration • @video.Views Views
                         </small>
-
                     </div>
 
                 </div>
@@ -98,30 +95,50 @@
 </div>
 
 <script>
-    function toggleFavorite(videoId) {
+    const video = document.getElementById("videoPlayer");
+    const savedPosition = @(ViewBag.Progress ?? 0);
 
+    video.addEventListener("loadedmetadata", () => {
+        if (savedPosition > 0) {
+            video.currentTime = savedPosition;
+        }
+    });
+
+    setInterval(() => {
+        if (!video.paused) {
+            fetch('/Video/SaveProgress', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    videoId: @Model.Id,
+                    currentSeconds: Math.floor(video.currentTime)
+                })
+            });
+        }
+    }, 10000);
+
+    function toggleFavorite(videoId) {
         fetch('/Video/ToggleFavorite', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'RequestVerificationToken': 
+                'RequestVerificationToken':
                     document.querySelector('input[name="__RequestVerificationToken"]').value
             },
             body: JSON.stringify({ id: videoId })
         })
         .then(response => response.json())
         .then(data => {
-
             const btn = document.getElementById('favoriteBtn');
 
             if (data.favorited) {
                 btn.classList.remove('btn-outline-warning');
                 btn.classList.add('btn-success');
-                btn.innerHTML = "❤️ Favorited";
+                btn.innerHTML = '❤️ Favorited';
             } else {
                 btn.classList.remove('btn-success');
                 btn.classList.add('btn-outline-warning');
-                btn.innerHTML = "⭐ Add to Favorites";
+                btn.innerHTML = '⭐ Add to Favorites';
             }
         });
     }

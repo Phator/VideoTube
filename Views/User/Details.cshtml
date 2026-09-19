@@ -1,0 +1,121 @@
+@model VideoTube.Models.ApplicationUser
+
+<h2>User Details</h2>
+
+<hr />
+
+<p>
+    <strong>Email:</strong>
+    @Model.Email
+</p>
+
+<p>
+    <strong>User ID:</strong>
+    @Model.Id
+</p>
+
+<p>
+    <strong>Roles:</strong>
+
+    @foreach (string role in ViewBag.Roles)
+    {
+        <span class="badge bg-primary">
+            @role
+        </span>
+    }
+</p>
+
+<hr />
+
+<form asp-action="MakeAdmin"
+      method="post">
+
+    <input type="hidden"
+           name="id"
+           value="@Model.Id" />
+
+    <button type="submit"
+            class="btn btn-success">
+        Make Admin
+    </button>
+
+</form>
+
+<form asp-action="Disable" method="post">
+    <input type="hidden"
+           name="id"
+           value="@Model.Id" />
+
+    <button class="btn btn-danger">
+        Disable User
+    </button>
+</form>
+
+<br />
+
+<form asp-action="Enable" method="post">
+    <input type="hidden"
+           name="id"
+           value="@Model.Id" />
+
+    <button class="btn btn-success">
+        Enable User
+    </button>
+</form>
+
+<br />
+
+<form asp-action="ResetPassword"
+      method="post">
+
+    <input type="hidden"
+           name="id"
+           value="@Model.Id" />
+
+    <input name="password"
+           class="form-control"
+           placeholder="New Password" />
+
+    <br />
+
+    <button class="btn btn-warning">
+        Reset Password
+    </button>
+</form>
+
+<br />
+
+<a asp-action="Favorites"
+   asp-route-id="@Model.Id"
+   class="btn btn-info">
+    View Favorites
+</a>
+
+<a asp-action="Uploads"
+   asp-route-id="@Model.Id"
+   class="btn btn-primary">
+    View Uploads
+</a>
+
+<br />
+
+<form asp-action="RemoveAdmin"
+      method="post">
+
+    <input type="hidden"
+           name="id"
+           value="@Model.Id" />
+
+    <button type="submit"
+            class="btn btn-warning">
+        Remove Admin
+    </button>
+
+</form>
+
+<br />
+
+<a asp-action="Index"
+   class="btn btn-secondary">
+    Back
+</a>
