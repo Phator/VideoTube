@@ -1,93 +1,151 @@
 @model VideoTube.Models.ApplicationUser
 
-<h2>User Details</h2>
+<h2 class="mb-4">User Details</h2>
+
+<div class="card shadow-sm p-4">
+
+    <p>
+        <strong>Email:</strong>
+        @Model.Email
+    </p>
+
+    <p>
+        <strong>User ID:</strong>
+        @Model.Id
+    </p>
+
+    <p>
+        <strong>Account Status:</strong>
+        @if (Model.IsDisabled)
+        {
+            <span class="badge bg-danger">Pending Approval</span>
+        }
+        else
+        {
+            <span class="badge bg-success">Active</span>
+        }
+    </p>
+
+    <p>
+        <strong>Roles:</strong>
+
+        @foreach (string role in ViewBag.Roles)
+        {
+            var badgeClass = role switch
+            {
+                "Admin" => "bg-danger",
+                "Masked" => "bg-warning text-dark",
+                _ => "bg-primary"
+            };
+
+            <span class="badge @badgeClass me-1">@role</span>
+        }
+    </p>
+
+</div>
 
 <hr />
 
-<p>
-    <strong>Email:</strong>
-    @Model.Email
-</p>
+<h4 class="mt-4">Role Management</h4>
 
-<p>
-    <strong>User ID:</strong>
-    @Model.Id
-</p>
+<div class="mb-3">
 
-<p>
-    <strong>Roles:</strong>
-
-    @foreach (string role in ViewBag.Roles)
+    <!-- Make Admin -->
+    @if (!ViewBag.Roles.Contains("Admin"))
     {
-        <span class="badge bg-primary">
-            @role
-        </span>
+        <form asp-action="MakeAdmin" method="post" class="d-inline">
+            <input type="hidden" name="id" value="@Model.Id" />
+            <button type="submit" class="btn btn-danger">
+                Make Admin
+            </button>
+        </form>
     }
-</p>
+
+    <!-- Remove Admin -->
+    @if (ViewBag.Roles.Contains("Admin"))
+    {
+        <form asp-action="RemoveAdmin" method="post" class="d-inline ms-2">
+            <input type="hidden" name="id" value="@Model.Id" />
+            <button type="submit" class="btn btn-warning">
+                Remove Admin
+            </button>
+        </form>
+    }
+
+    <!-- Make Masked -->
+    @if (!ViewBag.Roles.Contains("Masked"))
+    {
+        <form asp-action="MakeMasked" method="post" class="d-inline ms-2">
+            <input type="hidden" name="id" value="@Model.Id" />
+            <button type="submit" class="btn btn-info">
+                Make Masked
+            </button>
+        </form>
+    }
+
+    <!-- Remove Masked -->
+    @if (ViewBag.Roles.Contains("Masked"))
+    {
+        <form asp-action="RemoveMasked" method="post" class="d-inline ms-2">
+            <input type="hidden" name="id" value="@Model.Id" />
+            <button type="submit" class="btn btn-secondary">
+                Remove Masked
+            </button>
+        </form>
+    }
+
+</div>
 
 <hr />
 
-<form asp-action="MakeAdmin"
-      method="post">
+<h4 class="mt-4">Account Status</h4>
 
-    <input type="hidden"
-           name="id"
-           value="@Model.Id" />
+<div class="mb-3">
 
-    <button type="submit"
-            class="btn btn-success">
-        Make Admin
-    </button>
+    @if (!Model.IsDisabled)
+    {
+        <form asp-action="Disable" method="post" class="d-inline">
+            <input type="hidden" name="id" value="@Model.Id" />
+            <button class="btn btn-danger">
+                Disable User
+            </button>
+        </form>
+    }
+    else
+    {
+        <form asp-action="Enable" method="post" class="d-inline">
+            <input type="hidden" name="id" value="@Model.Id" />
+            <button class="btn btn-success">
+                Approve User
+            </button>
+        </form>
+    }
 
-</form>
+</div>
 
-<form asp-action="Disable" method="post">
-    <input type="hidden"
-           name="id"
-           value="@Model.Id" />
+<hr />
 
-    <button class="btn btn-danger">
-        Disable User
-    </button>
-</form>
+<h4 class="mt-4">Password Reset</h4>
 
-<br />
-
-<form asp-action="Enable" method="post">
-    <input type="hidden"
-           name="id"
-           value="@Model.Id" />
-
-    <button class="btn btn-success">
-        Enable User
-    </button>
-</form>
-
-<br />
-
-<form asp-action="ResetPassword"
-      method="post">
-
-    <input type="hidden"
-           name="id"
-           value="@Model.Id" />
+<form asp-action="ResetPassword" method="post" class="mb-4">
+    <input type="hidden" name="id" value="@Model.Id" />
 
     <input name="password"
-           class="form-control"
+           class="form-control mb-2"
            placeholder="New Password" />
-
-    <br />
 
     <button class="btn btn-warning">
         Reset Password
     </button>
 </form>
 
-<br />
+<hr />
+
+<h4 class="mt-4">User Content</h4>
 
 <a asp-action="Favorites"
    asp-route-id="@Model.Id"
-   class="btn btn-info">
+   class="btn btn-info me-2">
     View Favorites
 </a>
 
@@ -97,25 +155,8 @@
     View Uploads
 </a>
 
-<br />
+<hr />
 
-<form asp-action="RemoveAdmin"
-      method="post">
-
-    <input type="hidden"
-           name="id"
-           value="@Model.Id" />
-
-    <button type="submit"
-            class="btn btn-warning">
-        Remove Admin
-    </button>
-
-</form>
-
-<br />
-
-<a asp-action="Index"
-   class="btn btn-secondary">
+<a asp-action="Index" class="btn btn-secondary mt-3">
     Back
 </a>

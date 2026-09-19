@@ -1,4 +1,9 @@
 @model VideoTube.Models.Video
+@using VideoTube.Helpers
+
+@{
+    bool masked = MaskHelper.IsMasked(Context);
+}
 
 <h2>Delete Video</h2>
 
@@ -8,7 +13,9 @@
 
     Are you sure you want to delete:
 
-    <strong>@Model.Title</strong>?
+    <strong>
+        @(masked ? "Video Title Hidden" : Model.Title)
+    </strong>?
 
 </div>
 

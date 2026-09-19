@@ -1,4 +1,9 @@
 @model IEnumerable<VideoTube.Models.Video>
+@using VideoTube.Helpers
+
+@{
+    bool masked = MaskHelper.IsMasked(Context);
+}
 
 <h2 class="mb-4">Watch History</h2>
 
@@ -25,17 +30,21 @@ else
 
                         <img src="/thumbnails/@video.ThumbnailFileName"
                              class="card-img-top"
-                             alt="@video.Title"
-                             style="height: 180px; object-fit: cover;" />
+                             alt="@(masked ? "Hidden Thumbnail" : video.Title)"
+                             style="height: 180px; object-fit: cover; @(masked ? "filter: blur(50px);" : "")" />
 
                     </a>
 
                     <div class="card-body">
 
-                        <h5 class="card-title">@video.Title</h5>
+                        <!-- Title -->
+                        <h5 class="card-title">
+                            @(masked ? "Video Title Hidden" : video.Title)
+                        </h5>
 
+                        <!-- Duration -->
                         <p class="text-muted mb-2">
-                            Duration: @video.Duration
+                            Duration: @(masked ? "--:--" : video.Duration)
                         </p>
 
                         <a asp-action="Watch"

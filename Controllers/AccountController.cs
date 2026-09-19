@@ -37,8 +37,8 @@ namespace VideoTube.Controllers
         [AllowAnonymous]
         public IActionResult Register()
         {
-            if (_userManager.Users.Any())
-                return RedirectToAction("Login");
+           // if (_userManager.Users.Any())
+           //     return RedirectToAction("Login");
 
             return View();
         }
@@ -53,7 +53,8 @@ namespace VideoTube.Controllers
             var user = new ApplicationUser
             {
                 UserName = model.Email,
-                Email = model.Email
+                Email = model.Email,
+                IsDisabled = true   // NEW: disable all new accounts
             };
 
             bool firstUser =

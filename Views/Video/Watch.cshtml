@@ -1,4 +1,9 @@
 @model VideoTube.Models.Video
+@using VideoTube.Helpers
+
+@{
+    bool masked = MaskHelper.IsMasked(Context);
+}
 
 <div class="row">
 
@@ -6,32 +11,47 @@
     <div class="col-md-8">
 
         <!-- Title -->
-        <h2 class="mb-2">@Model.Title</h2>
+        <h2 class="mb-2">
+            @(masked ? "Video Title Hidden" : Model.Title)
+        </h2>
 
         <!-- Metadata -->
         <div class="text-muted mb-3">
+
             @if (Model.Category != null)
             {
-                <span>@Model.Category.Name</span>
+                <span>
+                    @(masked ? "Category Hidden" : Model.Category.Name)
+                </span>
                 <span class="mx-2">•</span>
             }
 
-            <span>@Model.Duration</span>
+            <span>
+                @(masked ? "--:--" : Model.Duration)
+            </span>
+
             <span class="mx-2">•</span>
-            <span>@Model.Views Views</span>
+
+            <span>
+                @(masked ? "Hidden Views" : $"{Model.Views} Views")
+            </span>
+
         </div>
 
         <!-- Video Player -->
         <video id="videoPlayer"
                width="100%"
                controls
-               class="mb-4">
+               class="mb-4"
+               style="@(masked ? "filter: blur(50px);" : "")">
             <source src="/videos/@Model.FileName" type="video/mp4" />
             Your browser does not support HTML5 video.
         </video>
 
         <!-- Description -->
-        <p class="lead">@Model.Description</p>
+        <p class="lead">
+            @(masked ? "Description Hidden" : Model.Description)
+        </p>
 
         <!-- Action Buttons -->
         <div class="mt-4 d-flex gap-2">
@@ -75,14 +95,19 @@
 
                     <img src="/thumbnails/@video.ThumbnailFileName"
                          class="card-img-top"
-                         alt="@video.Title"
-                         style="height: 150px; object-fit: cover;" />
+                         alt="@(masked ? "Hidden Thumbnail" : video.Title)"
+                         style="height: 150px; object-fit: cover; @(masked ? "filter: blur(50px);" : "")" />
 
                     <div class="card-body py-2">
-                        <h6 class="mb-1">@video.Title</h6>
+
+                        <h6 class="mb-1">
+                            @(masked ? "Video Title Hidden" : video.Title)
+                        </h6>
+
                         <small class="text-muted">
-                            @video.Duration • @video.Views Views
+                            @(masked ? "--:-- • Hidden Views" : $"{video.Duration} • {video.Views} Views")
                         </small>
+
                     </div>
 
                 </div>

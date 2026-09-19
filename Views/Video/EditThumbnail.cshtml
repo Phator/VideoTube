@@ -1,4 +1,9 @@
 @model EditThumbnailViewModel
+@using VideoTube.Helpers
+
+@{
+    bool masked = MaskHelper.IsMasked(Context);
+}
 
 <div class="container mt-4">
 
@@ -9,10 +14,18 @@
         <div class="card-header bg-dark text-white">
             Current Thumbnail
         </div>
-        <img src="/thumbnails/@Model.CurrentThumbnail" class="card-img-top" />
+
+        <img src="/thumbnails/@Model.CurrentThumbnail"
+             class="card-img-top"
+             alt="@(masked ? "Hidden Thumbnail" : Model.CurrentThumbnail)"
+             style="@(masked ? "filter: blur(50px);" : "")" />
     </div>
 
-    <form asp-action="EditThumbnail" method="post" enctype="multipart/form-data" class="card p-4 shadow-sm">
+    <form asp-action="EditThumbnail"
+          method="post"
+          enctype="multipart/form-data"
+          class="card p-4 shadow-sm">
+
         <input type="hidden" asp-for="VideoId" />
 
         <h4 class="mb-3">Choose a New Thumbnail</h4>
@@ -22,11 +35,13 @@
             <label asp-for="TimestampSeconds" class="form-label fw-bold">
                 Capture at Timestamp (seconds)
             </label>
+
             <input asp-for="TimestampSeconds"
                    type="number"
                    min="0"
                    class="form-control"
                    placeholder="Enter seconds (e.g., 20, 60, 120)" />
+
             <small class="text-muted">
                 This will capture a frame at the given timestamp.
             </small>
@@ -39,10 +54,12 @@
             <label asp-for="CustomThumbnail" class="form-label fw-bold">
                 Upload Custom Thumbnail
             </label>
+
             <input asp-for="CustomThumbnail"
                    type="file"
                    accept="image/*"
                    class="form-control" />
+
             <small class="text-muted">
                 JPG or PNG recommended.
             </small>

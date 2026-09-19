@@ -1,4 +1,9 @@
 @model IEnumerable<VideoTube.Models.WatchProgress>
+@using VideoTube.Helpers
+
+@{
+    bool masked = MaskHelper.IsMasked(Context);
+}
 
 <h2 class="mb-4">Continue Watching</h2>
 
@@ -24,19 +29,26 @@ else
                        asp-route-id="@item.VideoId"
                        class="thumbnail-wrapper">
 
-                        <img src="/thumbnails/@video.ThumbnailFileName"
+                        <img src="/thumbnails/@video?.ThumbnailFileName"
                              class="card-img-top"
-                             alt="@video.Title"
-                             style="height: 180px; object-fit: cover;" />
+                             alt="@(masked ? "Hidden Thumbnail" : video?.Title)"
+                             style="height: 180px; object-fit: cover; @(masked ? "filter: blur(50px);" : "")" />
 
                     </a>
 
                     <div class="card-body">
 
-                        <h5 class="card-title">@video.Title</h5>
+                        <!-- Title -->
+                        <h5 class="card-title">
+                            @(masked ? "Video Title Hidden" : video?.Title)
+                        </h5>
 
+                        <!-- Progress -->
                         <p class="text-muted mb-2">
-                            Progress: @TimeSpan.FromSeconds(item.CurrentSeconds).ToString(@"hh\:mm\:ss")
+                            Progress:
+                            @(masked
+                                ? "--:--:--"
+                                : TimeSpan.FromSeconds(item.CurrentSeconds).ToString(@"hh\:mm\:ss"))
                         </p>
 
                         <a asp-action="Watch"

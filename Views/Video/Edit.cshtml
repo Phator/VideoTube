@@ -1,4 +1,9 @@
 @model VideoTube.Models.Video
+@using VideoTube.Helpers
+
+@{
+    bool masked = MaskHelper.IsMasked(Context);
+}
 
 <h2>Edit Video</h2>
 
@@ -6,68 +11,59 @@
 
     <input asp-for="Id" type="hidden" />
 
+    <!-- Title -->
     <div class="mb-3">
-
-        <label asp-for="Title"
-               class="form-label">
-        </label>
+        <label asp-for="Title" class="form-label"></label>
 
         <input asp-for="Title"
-               class="form-control" />
-
+               class="form-control"
+               value="@(masked ? "Hidden Title" : Model.Title)" />
     </div>
 
+    <!-- Description -->
     <div class="mb-3">
-
-        <label asp-for="Description"
-               class="form-label">
-        </label>
+        <label asp-for="Description" class="form-label"></label>
 
         <textarea asp-for="Description"
                   class="form-control"
-                  rows="4"></textarea>
-
+                  rows="4">@(
+                      masked ? "Hidden Description" : Model.Description
+                  )</textarea>
     </div>
 
+    <!-- Category -->
     <div class="mb-3">
+        <label class="form-label">Category</label>
 
-        <label class="form-label">
-            Category
-        </label>
-
-        <select asp-for="CategoryId"
-                class="form-select">
+        <select asp-for="CategoryId" class="form-select">
 
             <option value="">
-                Select Category
+                @(masked ? "Hidden Category" : "Select Category")
             </option>
 
             @foreach (var category in ViewBag.Categories)
             {
                 <option value="@category.Id">
-                    @category.Name
+                    @(masked ? "Hidden Category" : category.Name)
                 </option>
             }
 
         </select>
-
     </div>
 
-    <button type="submit"
-            class="btn btn-success">
+    <!-- Buttons -->
+    <button type="submit" class="btn btn-success">
         Save Changes
     </button>
 
-    <a asp-action="Index"
-       class="btn btn-secondary">
+    <a asp-action="Index" class="btn btn-secondary">
         Cancel
     </a>
 
     <a asp-action="EditThumbnail"
-     asp-route-id="@Model.Id"
-      class="btn btn-warning ms-2">
+       asp-route-id="@Model.Id"
+       class="btn btn-warning ms-2">
         Edit Thumbnail
     </a>
-
 
 </form>

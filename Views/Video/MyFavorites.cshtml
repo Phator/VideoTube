@@ -1,4 +1,9 @@
 @model IEnumerable<VideoTube.Models.Video>
+@using VideoTube.Helpers
+
+@{
+    bool masked = MaskHelper.IsMasked(Context);
+}
 
 <h2 class="mb-4">My Favorites</h2>
 
@@ -17,8 +22,8 @@
 
                 <img src="/thumbnails/@video.ThumbnailFileName"
                      class="card-img-top"
-                     alt="@video.Title"
-                     style="height: 180px; object-fit: cover;" />
+                     alt="@(masked ? "Hidden Thumbnail" : video.Title)"
+                     style="height: 180px; object-fit: cover; @(masked ? "filter: blur(50px);" : "")" />
 
                 <div class="play-overlay">
                     <i class="bi bi-play-circle-fill play-icon"></i>
@@ -27,7 +32,12 @@
             </a>
 
             <div class="card-body">
-                <h5 class="card-title">@video.Title</h5>
+
+                <!-- Title -->
+                <h5 class="card-title">
+                    @(masked ? "Video Title Hidden" : video.Title)
+                </h5>
+
             </div>
 
         </div>
