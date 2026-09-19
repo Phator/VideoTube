@@ -468,7 +468,30 @@ namespace VideoTube.Controllers
             string newThumb = Guid.NewGuid() + ".jpg";
             string newThumbPath = Path.Combine(thumbnailFolder, newThumb);
 
+            // ---------------------------------------------------------
+            // Get video duration (for clamping timestamps)
+            // ---------------------------------------------------------
+            var probe = new Process
+            {
+                StartInfo =
+        {
+            FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffprobe.exe",
+            Arguments = $"-v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 \"{videoPath}\"",
+            RedirectStandardOutput = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        }
+            };
+
+            probe.Start();
+            string durationOutput = probe.StandardOutput.ReadToEnd();
+            probe.WaitForExit();
+
+            double.TryParse(durationOutput.Trim(), CultureInfo.InvariantCulture, out double videoSeconds);
+
+            // ---------------------------------------------------------
             // 1. Custom thumbnail upload
+            // ---------------------------------------------------------
             if (model.CustomThumbnail != null)
             {
                 using var stream = new FileStream(newThumbPath, FileMode.Create);
@@ -476,16 +499,29 @@ namespace VideoTube.Controllers
             }
             else if (model.TimestampSeconds.HasValue)
             {
-                // 2. Timestamp-based FFmpeg
+                // ---------------------------------------------------------
+                // 2. Timestamp-based FFmpeg (with clamping + HH:MM:SS)
+                // ---------------------------------------------------------
+                int requestedSeconds = model.TimestampSeconds.Value;
+
+                if (requestedSeconds > videoSeconds)
+                    requestedSeconds = (int)videoSeconds - 1;
+
+                if (requestedSeconds < 0)
+                    requestedSeconds = 0;
+
+                TimeSpan ts = TimeSpan.FromSeconds(requestedSeconds);
+                string timestamp = ts.ToString(@"hh\:mm\:ss");
+
                 var process = new Process
                 {
                     StartInfo =
-                    {
-                        FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffmpeg.exe",
-                        Arguments = $"-i \"{videoPath}\" -ss 00:00:{model.TimestampSeconds.Value:D2} -vframes 1 \"{newThumbPath}\"",
-                        UseShellExecute = false,
-                        CreateNoWindow = true
-                    }
+            {
+                FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffmpeg.exe",
+                Arguments = $"-i \"{videoPath}\" -ss {timestamp} -vframes 1 \"{newThumbPath}\"",
+                UseShellExecute = false,
+                CreateNoWindow = true
+            }
                 };
 
                 process.Start();
@@ -493,27 +529,32 @@ namespace VideoTube.Controllers
             }
             else
             {
-                // 3. Scene-detect regeneration
+                // ---------------------------------------------------------
+                // 3. Scene-detect regeneration (default)
+                // ---------------------------------------------------------
                 var process = new Process
                 {
                     StartInfo =
-                    {
-                        FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffmpeg.exe",
-                        Arguments = $"-i \"{videoPath}\" -vf \"select='gt(scene,0.4)'\" -vframes 1 \"{newThumbPath}\"",
-                        UseShellExecute = false,
-                        CreateNoWindow = true
-                    }
+            {
+                FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffmpeg.exe",
+                Arguments = $"-i \"{videoPath}\" -vf \"select='gt(scene,0.4)'\" -vframes 1 \"{newThumbPath}\"",
+                UseShellExecute = false,
+                CreateNoWindow = true
+            }
                 };
 
                 process.Start();
                 process.WaitForExit();
             }
 
+            // ---------------------------------------------------------
             // Update DB
+            // ---------------------------------------------------------
             video.ThumbnailFileName = newThumb;
             await _context.SaveChangesAsync();
 
-            return RedirectToAction("Details", new { id = video.Id });
+            return RedirectToAction("Watch", new { id = video.Id });
         }
+
     }
 }
