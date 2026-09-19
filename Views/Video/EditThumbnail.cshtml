@@ -1,0 +1,25 @@
+@model EditThumbnailViewModel
+
+<h2>Edit Thumbnail</h2>
+
+<div>
+    <img src="/thumbnails/@Model.CurrentThumbnail" width="300" />
+</div>
+
+<form asp-action="EditThumbnail" method="post" enctype="multipart/form-data">
+    <input type="hidden" asp-for="VideoId" />
+
+    <h3>Choose a new thumbnail</h3>
+
+    <label>Pick timestamp (seconds):</label>
+    <input asp-for="TimestampSeconds" type="number" min="0" />
+
+    <br /><br />
+
+    <label>Upload custom thumbnail:</label>
+    <input asp-for="CustomThumbnail" type="file" accept="image/*" />
+
+    <br /><br />
+
+    <button type="submit">Update Thumbnail</button>
+</form>
