@@ -25,5 +25,7 @@ namespace VideoTube.Data
 
         public DbSet<WatchProgress> WatchProgress
             => Set<WatchProgress>();
+
+        public DbSet<ActivityLog> ActivityLogs { get; set; }
     }
 }

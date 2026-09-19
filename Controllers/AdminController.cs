@@ -15,17 +15,20 @@ namespace VideoTube.Controllers
         private readonly IWebHostEnvironment _env;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
+        private readonly ActivityLogger _logger;
 
         public AdminController(
             ApplicationDbContext context,
             UserManager<ApplicationUser> userManager,
             RoleManager<IdentityRole> roleManager,
-            IWebHostEnvironment env)
+            IWebHostEnvironment env,
+            ActivityLogger logger)
         {
             _context = context;
             _userManager = userManager;
             _roleManager = roleManager;
             _env = env;
+            _logger = logger;
         }
 
         // ============================
@@ -165,6 +168,8 @@ namespace VideoTube.Controllers
             user.IsDisabled = false;
             await _userManager.UpdateAsync(user);
 
+            await _logger.LogAsync(user.Id, user.Email, "User Approved");
+
             return RedirectToAction("Dashboard");
         }
 
@@ -187,6 +192,8 @@ namespace VideoTube.Controllers
 
             await _userManager.AddToRoleAsync(user, role);
 
+            await _logger.LogAsync(user.Id, user.Email, "Role Changed", $"New Role: {role}");
+
             return RedirectToAction("Users");
         }
 
@@ -200,6 +207,19 @@ namespace VideoTube.Controllers
                 .ToList();
 
             return View(roles);
+        }
+
+        // ============================
+        // Add Activity Logs
+        // ============================
+        public IActionResult ActivityLogs()
+        {
+            var logs = _context.ActivityLogs
+                .OrderByDescending(l => l.Timestamp)
+                .Take(200)
+                .ToList();
+
+            return View(logs);
         }
     }
 }

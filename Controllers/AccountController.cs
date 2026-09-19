@@ -11,22 +11,24 @@ namespace VideoTube.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly RoleManager<IdentityRole> _roleManager;
+        private readonly ActivityLogger _logger;
 
         public AccountController(
             UserManager<ApplicationUser> userManager,
             SignInManager<ApplicationUser> signInManager,
-            RoleManager<IdentityRole> roleManager)
+            RoleManager<IdentityRole> roleManager,
+            ActivityLogger logger)
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _roleManager = roleManager;
+            _logger = logger;
         }
 
         [AllowAnonymous]
         public IActionResult Setup()
         {
-            bool hasUsers =
-                _userManager.Users.Any();
+            bool hasUsers = _userManager.Users.Any();
 
             if (hasUsers)
                 return RedirectToAction("Login");
@@ -37,9 +39,6 @@ namespace VideoTube.Controllers
         [AllowAnonymous]
         public IActionResult Register()
         {
-           // if (_userManager.Users.Any())
-           //     return RedirectToAction("Login");
-
             return View();
         }
 
@@ -53,7 +52,7 @@ namespace VideoTube.Controllers
             {
                 UserName = model.Email,
                 Email = model.Email,
-                IsDisabled = true   // NEW: disable all new accounts
+                IsDisabled = true
             };
 
             bool firstUser = !_userManager.Users.Any();
@@ -62,16 +61,17 @@ namespace VideoTube.Controllers
 
             if (result.Succeeded)
             {
-                // ⭐ Assign default role to all new users
+                // Log registration
+                await _logger.LogAsync(user.Id, user.Email!, "User Registered");
+
+                // Assign default role
                 await _userManager.AddToRoleAsync(user, "User");
 
-                // ⭐ First user becomes Admin
+                // First user becomes Admin
                 if (firstUser)
                 {
                     if (!await _roleManager.RoleExistsAsync("Admin"))
-                    {
                         await _roleManager.CreateAsync(new IdentityRole("Admin"));
-                    }
 
                     await _userManager.AddToRoleAsync(user, "Admin");
                 }
@@ -81,13 +81,10 @@ namespace VideoTube.Controllers
             }
 
             foreach (var error in result.Errors)
-            {
                 ModelState.AddModelError("", error.Description);
-            }
 
             return View(model);
         }
-
 
         public IActionResult Login()
         {
@@ -95,52 +92,39 @@ namespace VideoTube.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Login(
-            LoginViewModel model)
+        public async Task<IActionResult> Login(LoginViewModel model)
         {
             if (!ModelState.IsValid)
                 return View(model);
 
-            var user =
-            await _userManager.FindByEmailAsync(
-                model.Email);
+            var user = await _userManager.FindByEmailAsync(model.Email);
 
             if (user?.IsDisabled == true)
             {
-                ModelState.AddModelError(
-                    "",
-                    "This account has been disabled.");
-
+                ModelState.AddModelError("", "This account has been disabled.");
                 return View(model);
             }
-            var result =
-                await _signInManager.PasswordSignInAsync(
-                    model.Email,
-                    model.Password,
-                    false,
-                    false);
+
+            var result = await _signInManager.PasswordSignInAsync(
+                model.Email,
+                model.Password,
+                false,
+                false);
 
             if (result.Succeeded)
             {
-                return RedirectToAction(
-                    "Index",
-                    "Video");
+                await _logger.LogAsync(user!.Id, user.Email!, "User Logged In");
+                return RedirectToAction("Index", "Video");
             }
 
-            ModelState.AddModelError(
-                "",
-                "Invalid login attempt.");
-
+            ModelState.AddModelError("", "Invalid login attempt.");
             return View(model);
         }
 
         public async Task<IActionResult> Logout()
         {
             await _signInManager.SignOutAsync();
-
-            return RedirectToAction(
-                "Index",
-                "Video");
+            return RedirectToAction("Index", "Video");
         }
     }
 }
