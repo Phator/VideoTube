@@ -134,12 +134,12 @@ namespace VideoTube.Controllers
             var process = new Process
             {
                 StartInfo =
-                {
-                    FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffmpeg.exe",
-                    Arguments = $"-i \"{filePath}\" -vf \"select='gt(scene,0.4)'\" -vframes 1 \"{thumbnailPath}\"",
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                }
+        {
+            FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffmpeg.exe",
+            Arguments = $"-i \"{filePath}\" -vf \"select='gt(scene,0.4)'\" -vframes 1 \"{thumbnailPath}\"",
+            UseShellExecute = false,
+            CreateNoWindow = true
+        }
             };
 
             process.Start();
@@ -151,13 +151,13 @@ namespace VideoTube.Controllers
             var probeProcess = new Process
             {
                 StartInfo =
-                {
-                    FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffprobe.exe",
-                    Arguments = $"-v error -show_entries format=duration -of default:noprint_wrappers=1:nokey=1 \"{filePath}\"",
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                }
+        {
+            FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffprobe.exe",
+            Arguments = $"-v error -show_entries format=duration -of default:noprint_wrappers=1:nokey=1 \"{filePath}\"",
+            RedirectStandardOutput = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        }
             };
 
             probeProcess.Start();
@@ -188,6 +188,7 @@ namespace VideoTube.Controllers
 
             return RedirectToAction("Index");
         }
+
 
         // ---------------------------------------------------------
         // WATCH VIDEO
@@ -555,6 +556,49 @@ namespace VideoTube.Controllers
 
             return RedirectToAction("Watch", new { id = video.Id });
         }
+
+        // ---------------------------------------------------------
+        // REBUILD ALL VIDEO DURATIONS
+        // ---------------------------------------------------------
+        [HttpPost]
+        public async Task<IActionResult> RebuildDurations()
+        {
+            var videos = _context.Videos.ToList();
+
+            foreach (var video in videos)
+            {
+                string videoPath = Path.Combine(_environment.WebRootPath, "videos", video.FileName);
+
+                if (!System.IO.File.Exists(videoPath))
+                    continue;
+
+                var probeProcess = new Process
+                {
+                    StartInfo =
+            {
+                FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffprobe.exe",
+                Arguments = $"-v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 \"{videoPath}\"",
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            }
+                };
+
+                probeProcess.Start();
+                string output = probeProcess.StandardOutput.ReadToEnd();
+                probeProcess.WaitForExit();
+
+                if (double.TryParse(output.Trim(), CultureInfo.InvariantCulture, out double seconds))
+                {
+                    video.Duration = TimeSpan.FromSeconds(seconds).ToString(@"hh\:mm\:ss");
+                }
+            }
+
+            await _context.SaveChangesAsync();
+
+            return RedirectToAction("Index");
+        }
+
 
     }
 }
