@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
-using System.Diagnostics;
 using VideoTube.Data;
 using VideoTube.Models;
 using Microsoft.AspNetCore.Identity;
@@ -29,7 +28,9 @@ namespace VideoTube.Controllers
             _env = env;
         }
 
-        // ⭐ Your Dashboard method goes HERE — inside the class
+        // ============================
+        // DASHBOARD
+        // ============================
         public IActionResult Dashboard()
         {
             var videos = _context.Videos
@@ -40,13 +41,11 @@ namespace VideoTube.Controllers
 
             var model = new AdminDashboardViewModel();
 
-            // ⭐ Pending Approval
-            var pendingUsers = _userManager.Users
+            // Pending Approval
+            model.PendingUsers = _userManager.Users
                 .Where(u => u.IsDisabled)
                 .OrderBy(u => u.Email)
                 .ToList();
-
-            model.PendingUsers = pendingUsers;
 
             // Storage
             string videoDir = Path.Combine(_env.WebRootPath, "videos");
@@ -60,7 +59,6 @@ namespace VideoTube.Controllers
                 ? Directory.GetFiles(thumbDir).Sum(f => new FileInfo(f).Length)
                 : 0;
 
-            // Core stats
             model.TotalVideos = videos.Count;
             model.TotalUsers = users.Count;
             model.TotalViews = videos.Sum(v => v.Views);
@@ -104,6 +102,104 @@ namespace VideoTube.Controllers
             model.CategoryCounts = categories.Select(c => c.Count).ToList();
 
             return View(model);
+        }
+
+        // ============================
+        // MANAGE USERS
+        // ============================
+        public async Task<IActionResult> Users()
+        {
+            var users = _userManager.Users
+                .OrderBy(u => u.Email)
+                .ToList();
+
+            var model = new List<UserWithRolesViewModel>();
+
+            foreach (var user in users)
+            {
+                var roles = await _userManager.GetRolesAsync(user);
+
+                model.Add(new UserWithRolesViewModel
+                {
+                    User = user,
+                    Roles = roles.ToList()
+                });
+            }
+
+            return View(model);
+        }
+
+        // ============================
+        // USER DETAILS 
+        // ============================
+        public async Task<IActionResult> Details(string id)
+        {
+            if (id == null)
+                return NotFound();
+
+            var user = await _userManager.FindByIdAsync(id);
+            if (user == null)
+                return NotFound();
+
+            var roles = await _userManager.GetRolesAsync(user);
+
+            var model = new UserWithRolesViewModel
+            {
+                User = user,
+                Roles = roles.ToList()
+            };
+
+            return View(model);
+        }
+
+        // ============================
+        // ENABLE USER (APPROVE)
+        // ============================
+        [HttpPost]
+        public async Task<IActionResult> Enable(string id)
+        {
+            var user = await _userManager.FindByIdAsync(id);
+            if (user == null)
+                return NotFound();
+
+            user.IsDisabled = false;
+            await _userManager.UpdateAsync(user);
+
+            return RedirectToAction("Dashboard");
+        }
+
+        // ============================
+        // ASSIGN ROLE
+        // ============================
+        [HttpPost]
+        public async Task<IActionResult> AssignRole(string id, string role)
+        {
+            var user = await _userManager.FindByIdAsync(id);
+            if (user == null)
+                return NotFound();
+
+            var currentRoles = await _userManager.GetRolesAsync(user);
+
+            await _userManager.RemoveFromRolesAsync(user, currentRoles);
+
+            if (!await _roleManager.RoleExistsAsync(role))
+                await _roleManager.CreateAsync(new IdentityRole(role));
+
+            await _userManager.AddToRoleAsync(user, role);
+
+            return RedirectToAction("Users");
+        }
+
+        // ============================
+        // MANAGE ROLES
+        // ============================
+        public IActionResult Roles()
+        {
+            var roles = _roleManager.Roles
+                .OrderBy(r => r.Name)
+                .ToList();
+
+            return View(roles);
         }
     }
 }

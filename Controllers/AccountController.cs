@@ -44,8 +44,7 @@ namespace VideoTube.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Register(
-            RegisterViewModel model)
+        public async Task<IActionResult> Register(RegisterViewModel model)
         {
             if (!ModelState.IsValid)
                 return View(model);
@@ -57,36 +56,38 @@ namespace VideoTube.Controllers
                 IsDisabled = true   // NEW: disable all new accounts
             };
 
-            bool firstUser =
-                !_userManager.Users.Any();
+            bool firstUser = !_userManager.Users.Any();
 
-            var result =
-                await _userManager.CreateAsync(
-                    user,
-                    model.Password);
+            var result = await _userManager.CreateAsync(user, model.Password);
 
-            if (firstUser)
+            if (result.Succeeded)
             {
-                if (!await _roleManager.RoleExistsAsync("Admin"))
+                // ⭐ Assign default role to all new users
+                await _userManager.AddToRoleAsync(user, "User");
+
+                // ⭐ First user becomes Admin
+                if (firstUser)
                 {
-                    await _roleManager.CreateAsync(
-                        new IdentityRole("Admin"));
+                    if (!await _roleManager.RoleExistsAsync("Admin"))
+                    {
+                        await _roleManager.CreateAsync(new IdentityRole("Admin"));
+                    }
+
+                    await _userManager.AddToRoleAsync(user, "Admin");
                 }
 
-                await _userManager.AddToRoleAsync(
-                    user,
-                    "Admin");
+                TempData["PendingApproval"] = true;
+                return RedirectToAction("Register");
             }
 
             foreach (var error in result.Errors)
             {
-                ModelState.AddModelError(
-                    "",
-                    error.Description);
+                ModelState.AddModelError("", error.Description);
             }
 
             return View(model);
         }
+
 
         public IActionResult Login()
         {

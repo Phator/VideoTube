@@ -27,8 +27,11 @@
         Register
     </button>
 
-    <div class="alert alert-info">
-    Your account has been created and is pending admin approval.
-    </div>
-
 </form>
+
+@if (TempData["PendingApproval"] != null)
+{
+    <div class="alert alert-info mt-3">
+        Your account has been created and is pending admin approval.
+    </div>
+}
