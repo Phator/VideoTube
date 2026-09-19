@@ -16,5 +16,7 @@ namespace VideoTube.Data
         public DbSet<Video> Videos => Set<Video>();
 
         public DbSet<Category> Categories => Set<Category>();
+
+        public DbSet<FavoriteVideo> FavoriteVideos => Set<FavoriteVideo>();
     }
 }

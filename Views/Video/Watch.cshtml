@@ -30,6 +30,34 @@
         <!-- Description -->
         <p class="lead">@Model.Description</p>
 
+        <!-- Action Buttons -->
+        <div class="mt-4 d-flex gap-2">
+
+            <!-- Favorite Toggle -->
+            <button id="favoriteBtn"
+                    class="btn @(ViewBag.IsFavorited ? "btn-success" : "btn-outline-warning")"
+                    onclick="toggleFavorite(@Model.Id)">
+                @(ViewBag.IsFavorited ? "❤️ Favorited" : "⭐ Add to Favorites")
+            </button>
+
+            <!-- Edit -->
+            <a asp-action="Edit"
+               asp-route-id="@Model.Id"
+               class="btn btn-primary">
+                ✏️ Edit
+            </a>
+
+            <!-- Delete -->
+            <a asp-action="Delete"
+               asp-route-id="@Model.Id"
+               class="btn btn-danger">
+                🗑️ Delete
+            </a>
+
+        </div>
+
+        @Html.AntiForgeryToken()
+
     </div>
 
     <!-- Related Videos -->
@@ -68,3 +96,33 @@
     </div>
 
 </div>
+
+<script>
+    function toggleFavorite(videoId) {
+
+        fetch('/Video/ToggleFavorite', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'RequestVerificationToken': 
+                    document.querySelector('input[name="__RequestVerificationToken"]').value
+            },
+            body: JSON.stringify({ id: videoId })
+        })
+        .then(response => response.json())
+        .then(data => {
+
+            const btn = document.getElementById('favoriteBtn');
+
+            if (data.favorited) {
+                btn.classList.remove('btn-outline-warning');
+                btn.classList.add('btn-success');
+                btn.innerHTML = "❤️ Favorited";
+            } else {
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-outline-warning');
+                btn.innerHTML = "⭐ Add to Favorites";
+            }
+        });
+    }
+</script>

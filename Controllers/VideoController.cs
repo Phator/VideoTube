@@ -1,10 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
-using VideoTube.Data;
-using VideoTube.Models;
-using System.Diagnostics;
-using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using System.Diagnostics;
+using System.Globalization;
+using VideoTube.Data;
+using VideoTube.Models;
 
 namespace VideoTube.Controllers
 {
@@ -13,15 +14,48 @@ namespace VideoTube.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IWebHostEnvironment _environment;
+        private readonly UserManager<ApplicationUser> _userManager;
 
         public VideoController(
             ApplicationDbContext context,
-            IWebHostEnvironment environment)
+            IWebHostEnvironment environment,
+            UserManager<ApplicationUser> userManager)
         {
             _context = context;
             _environment = environment;
+            _userManager = userManager;
         }
 
+        // ---------------------------------------------------------
+        // FAVORITE (Legacy Add-Only)
+        // ---------------------------------------------------------
+        [HttpPost]
+        public async Task<IActionResult> Favorite(int id)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null)
+                return RedirectToAction("Login", "Account");
+
+            bool exists = await _context.FavoriteVideos
+                .AnyAsync(f => f.UserId == user.Id && f.VideoId == id);
+
+            if (!exists)
+            {
+                _context.FavoriteVideos.Add(new FavoriteVideo
+                {
+                    UserId = user.Id,
+                    VideoId = id
+                });
+
+                await _context.SaveChangesAsync();
+            }
+
+            return RedirectToAction("Watch", new { id });
+        }
+
+        // ---------------------------------------------------------
+        // VIDEO LISTING
+        // ---------------------------------------------------------
         public IActionResult Index(string? search, string? category)
         {
             var videos = _context.Videos.AsQueryable();
@@ -50,105 +84,90 @@ namespace VideoTube.Controllers
                 .Take(5)
                 .ToList();
 
-            return View(
-                videos.OrderByDescending(v => v.UploadDate)
-                      .ToList());
+            return View(videos
+                .OrderByDescending(v => v.UploadDate)
+                .ToList());
         }
 
+        // ---------------------------------------------------------
+        // UPLOAD VIDEO (GET)
+        // ---------------------------------------------------------
         public IActionResult Upload()
         {
-            ViewBag.Categories =
-                _context.Categories
-                        .OrderBy(c => c.Name)
-                        .ToList();
+            ViewBag.Categories = _context.Categories
+                .OrderBy(c => c.Name)
+                .ToList();
 
             return View();
         }
 
+        // ---------------------------------------------------------
+        // UPLOAD VIDEO (POST)
+        // ---------------------------------------------------------
         [HttpPost]
-        public async Task<IActionResult> Upload(
-            UploadVideoViewModel model)
+        public async Task<IActionResult> Upload(UploadVideoViewModel model)
         {
             if (!ModelState.IsValid)
                 return View(model);
 
-            string videoFolder =
-                Path.Combine(_environment.WebRootPath, "videos");
-
+            // --- Save Video File ---
+            string videoFolder = Path.Combine(_environment.WebRootPath, "videos");
             Directory.CreateDirectory(videoFolder);
 
-            string fileName =
-                Guid.NewGuid().ToString() +
-                Path.GetExtension(model.VideoFile.FileName);
+            string fileName = Guid.NewGuid() + Path.GetExtension(model.VideoFile.FileName);
+            string filePath = Path.Combine(videoFolder, fileName);
 
-            string filePath =
-                Path.Combine(videoFolder, fileName);
-
-            using (var stream =
-                new FileStream(filePath, FileMode.Create))
+            using (var stream = new FileStream(filePath, FileMode.Create))
             {
                 await model.VideoFile.CopyToAsync(stream);
             }
 
-            string thumbnailFolder =
-                Path.Combine(_environment.WebRootPath, "thumbnails");
-
+            // --- Generate Thumbnail ---
+            string thumbnailFolder = Path.Combine(_environment.WebRootPath, "thumbnails");
             Directory.CreateDirectory(thumbnailFolder);
 
-            string thumbnailFileName =
-                Guid.NewGuid() + ".jpg";
+            string thumbnailFileName = Guid.NewGuid() + ".jpg";
+            string thumbnailPath = Path.Combine(thumbnailFolder, thumbnailFileName);
 
-            string thumbnailPath =
-                Path.Combine(
-                    thumbnailFolder,
-                    thumbnailFileName);
-
-            var process = new Process();
-
-            process.StartInfo.FileName =
-                @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffmpeg.exe";
-
-            process.StartInfo.Arguments =
-                $"-i \"{filePath}\" -ss 00:00:05 -vframes 1 \"{thumbnailPath}\"";
-
-            process.StartInfo.UseShellExecute = false;
-            process.StartInfo.CreateNoWindow = true;
+            var process = new Process
+            {
+                StartInfo =
+                {
+                    FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffmpeg.exe",
+                    Arguments = $"-i \"{filePath}\" -ss 00:00:05 -vframes 1 \"{thumbnailPath}\"",
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
+            };
 
             process.Start();
-
             process.WaitForExit();
 
+            // --- Get Duration ---
             string duration = "00:00";
 
-            var probeProcess = new Process();
-
-            probeProcess.StartInfo.FileName =
-                @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffprobe.exe";
-
-            probeProcess.StartInfo.Arguments =
-                $"-v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 \"{filePath}\"";
-
-            probeProcess.StartInfo.RedirectStandardOutput = true;
-            probeProcess.StartInfo.UseShellExecute = false;
-            probeProcess.StartInfo.CreateNoWindow = true;
+            var probeProcess = new Process
+            {
+                StartInfo =
+                {
+                    FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffprobe.exe",
+                    Arguments = $"-v error -show_entries format=duration -of default:noprint_wrappers=1:nokey=1 \"{filePath}\"",
+                    RedirectStandardOutput = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
+            };
 
             probeProcess.Start();
-
-            string output =
-                probeProcess.StandardOutput.ReadToEnd();
-
+            string output = probeProcess.StandardOutput.ReadToEnd();
             probeProcess.WaitForExit();
 
-            if (double.TryParse(
-                    output.Trim(),
-                    CultureInfo.InvariantCulture,
-                    out double seconds))
+            if (double.TryParse(output.Trim(), CultureInfo.InvariantCulture, out double seconds))
             {
-                duration =
-                    TimeSpan.FromSeconds(seconds)
-                            .ToString(@"hh\:mm\:ss");
+                duration = TimeSpan.FromSeconds(seconds).ToString(@"hh\:mm\:ss");
             }
 
+            // --- Save to DB ---
             var video = new Video
             {
                 Title = model.Title,
@@ -162,13 +181,15 @@ namespace VideoTube.Controllers
             };
 
             _context.Videos.Add(video);
-
             await _context.SaveChangesAsync();
 
             return RedirectToAction("Index");
         }
 
-        public IActionResult Watch(int id)
+        // ---------------------------------------------------------
+        // WATCH VIDEO
+        // ---------------------------------------------------------
+        public async Task<IActionResult> Watch(int id)
         {
             var video = _context.Videos
                 .Include(v => v.Category)
@@ -177,15 +198,17 @@ namespace VideoTube.Controllers
             if (video == null)
                 return NotFound();
 
-            video.Views++;
+            video!.Views++; // FIXED WARNING
+            await _context.SaveChangesAsync();
 
-            _context.SaveChanges();
+            var user = await _userManager.GetUserAsync(User);
+
+            ViewBag.IsFavorited = _context.FavoriteVideos
+                .Any(f => f.UserId == user!.Id && f.VideoId == id); // FIXED WARNING
 
             ViewBag.RelatedVideos = _context.Videos
                 .Include(v => v.Category)
-                .Where(v =>
-                    v.Id != video.Id &&
-                    v.CategoryId == video.CategoryId)
+                .Where(v => v.Id != video.Id && v.CategoryId == video.CategoryId)
                 .OrderByDescending(v => v.Views)
                 .Take(5)
                 .ToList();
@@ -193,11 +216,12 @@ namespace VideoTube.Controllers
             return View(video);
         }
 
+        // ---------------------------------------------------------
+        // EDIT VIDEO
+        // ---------------------------------------------------------
         public IActionResult Edit(int id)
         {
-            var video = _context.Videos.FirstOrDefault(
-                v => v.Id == id);
-
+            var video = _context.Videos.FirstOrDefault(v => v.Id == id);
             if (video == null)
                 return NotFound();
 
@@ -211,9 +235,7 @@ namespace VideoTube.Controllers
         [HttpPost]
         public async Task<IActionResult> Edit(Video model)
         {
-            var video = _context.Videos.FirstOrDefault(
-                v => v.Id == model.Id);
-
+            var video = _context.Videos.FirstOrDefault(v => v.Id == model.Id);
             if (video == null)
                 return NotFound();
 
@@ -222,15 +244,15 @@ namespace VideoTube.Controllers
             video.CategoryId = model.CategoryId;
 
             await _context.SaveChangesAsync();
-
             return RedirectToAction("Index");
         }
 
+        // ---------------------------------------------------------
+        // DELETE VIDEO
+        // ---------------------------------------------------------
         public IActionResult Delete(int id)
         {
-            var video = _context.Videos.FirstOrDefault(
-                v => v.Id == id);
-
+            var video = _context.Videos.FirstOrDefault(v => v.Id == id);
             if (video == null)
                 return NotFound();
 
@@ -241,42 +263,82 @@ namespace VideoTube.Controllers
         [ActionName("Delete")]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var video = _context.Videos.FirstOrDefault(
-                v => v.Id == id);
-
+            var video = _context.Videos.FirstOrDefault(v => v.Id == id);
             if (video == null)
                 return RedirectToAction("Index");
 
-            string videoPath =
-                Path.Combine(
-                    _environment.WebRootPath,
-                    "videos",
-                    video.FileName);
-
+            string videoPath = Path.Combine(_environment.WebRootPath, "videos", video.FileName);
             if (System.IO.File.Exists(videoPath))
-            {
                 System.IO.File.Delete(videoPath);
-            }
 
             if (!string.IsNullOrEmpty(video.ThumbnailFileName))
             {
-                string thumbnailPath =
-                    Path.Combine(
-                        _environment.WebRootPath,
-                        "thumbnails",
-                        video.ThumbnailFileName);
-
+                string thumbnailPath = Path.Combine(_environment.WebRootPath, "thumbnails", video.ThumbnailFileName);
                 if (System.IO.File.Exists(thumbnailPath))
-                {
                     System.IO.File.Delete(thumbnailPath);
-                }
             }
 
             _context.Videos.Remove(video);
-
             await _context.SaveChangesAsync();
 
             return RedirectToAction("Index");
         }
+
+        // ---------------------------------------------------------
+        // FAVORITES LIST
+        // ---------------------------------------------------------
+        public async Task<IActionResult> MyFavorites()
+        {
+            var user = await _userManager.GetUserAsync(User);
+
+            var favorites = _context.FavoriteVideos
+                .Where(f => f.UserId == user!.Id)
+                .Select(f => f.Video!)
+                .ToList();
+
+            return View(favorites);
+        }
+
+        // ---------------------------------------------------------
+        // FAVORITE TOGGLE (AJAX)
+        // ---------------------------------------------------------
+        [HttpPost]
+        public async Task<IActionResult> ToggleFavorite([FromBody] FavoriteToggleRequest request)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null)
+                return Unauthorized();
+
+            var fav = await _context.FavoriteVideos
+                .FirstOrDefaultAsync(f => f.UserId == user.Id && f.VideoId == request.Id);
+
+            bool nowFavorited;
+
+            if (fav == null)
+            {
+                _context.FavoriteVideos.Add(new FavoriteVideo
+                {
+                    UserId = user.Id,
+                    VideoId = request.Id
+                });
+
+                nowFavorited = true;
+            }
+            else
+            {
+                _context.FavoriteVideos.Remove(fav);
+                nowFavorited = false;
+            }
+
+            await _context.SaveChangesAsync();
+
+            return Json(new { favorited = nowFavorited });
+        }
+
+        public class FavoriteToggleRequest
+        {
+            public int Id { get; set; }
+        }
+
     }
 }
