@@ -18,7 +18,12 @@ namespace VideoTube.Controllers
         public IActionResult Index()
         {
             var categories = _context.Categories
-                .OrderBy(c => c.Name)
+                .Select(c => new CategoryWithCountViewModel
+                {
+                    Id = c.Id,
+                    Name = c.Name,
+                    VideoCount = _context.Videos.Count(v => v.CategoryId == c.Id)
+                })
                 .ToList();
 
             return View(categories);

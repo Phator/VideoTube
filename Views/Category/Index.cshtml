@@ -1,4 +1,4 @@
-@model IEnumerable<VideoTube.Models.Category>
+@model IEnumerable<CategoryWithCountViewModel>
 
 @if (TempData["Error"] != null)
 {
@@ -9,25 +9,17 @@
 
 <h2 class="mb-4">Manage Categories</h2>
 
-<!-- Add Category Form -->
 <form asp-action="Create" method="post" class="card p-3 mb-4 shadow-sm">
-
     <div class="input-group">
         <input type="text"
                name="name"
                class="form-control"
                placeholder="New Category" />
-
-        <button type="submit" class="btn btn-success">
-            Add Category
-        </button>
+        <button type="submit" class="btn btn-success">Add Category</button>
     </div>
-
 </form>
 
-<!-- Category Table -->
 <table class="table table-striped table-hover">
-
     <thead class="table-dark">
         <tr>
             <th>Name</th>
@@ -39,7 +31,18 @@
         @foreach (var category in Model)
         {
             <tr>
-                <td>@category.Name</td>
+                <td>
+                    <a asp-controller="Video"
+                       asp-action="Index"
+                       asp-route-category="@category.Name"
+                       class="text-decoration-none">
+                        @category.Name
+                    </a>
+
+                    <span class="badge bg-secondary ms-2">
+                        @category.VideoCount
+                    </span>
+                </td>
 
                 <td class="text-end">
                     <a asp-action="Delete"
@@ -51,5 +54,4 @@
             </tr>
         }
     </tbody>
-
 </table>
