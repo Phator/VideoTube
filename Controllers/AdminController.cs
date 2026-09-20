@@ -44,13 +44,11 @@ namespace VideoTube.Controllers
 
             var model = new AdminDashboardViewModel();
 
-            // Pending Approval
             model.PendingUsers = _userManager.Users
                 .Where(u => u.IsDisabled)
                 .OrderBy(u => u.Email)
                 .ToList();
 
-            // Storage
             string videoDir = Path.Combine(_env.WebRootPath, "videos");
             string thumbDir = Path.Combine(_env.WebRootPath, "thumbnails");
 
@@ -83,7 +81,6 @@ namespace VideoTube.Controllers
             model.MostViewed = videos.OrderByDescending(v => v.Views).FirstOrDefault();
             model.NewestVideo = videos.OrderByDescending(v => v.UploadDate).FirstOrDefault();
 
-            // Uploads per month
             var uploads = videos
                 .GroupBy(v => v.UploadDate.ToString("MMM yyyy"))
                 .OrderBy(g => DateTime.Parse("01 " + g.Key))
@@ -92,7 +89,6 @@ namespace VideoTube.Controllers
             model.UploadLabels = uploads.Select(g => g.Key).ToList();
             model.UploadCounts = uploads.Select(g => g.Count()).ToList();
 
-            // Category distribution
             var categories = _context.Categories
                 .Select(c => new
                 {
@@ -168,7 +164,7 @@ namespace VideoTube.Controllers
             user.IsDisabled = false;
             await _userManager.UpdateAsync(user);
 
-            await _logger.LogAsync(user.Id, user.Email, "User Approved");
+            await _logger.LogAsync(user.Id, user.Email!, "User Approved");
 
             return RedirectToAction("Dashboard");
         }
@@ -184,7 +180,6 @@ namespace VideoTube.Controllers
                 return NotFound();
 
             var currentRoles = await _userManager.GetRolesAsync(user);
-
             await _userManager.RemoveFromRolesAsync(user, currentRoles);
 
             if (!await _roleManager.RoleExistsAsync(role))
@@ -192,7 +187,7 @@ namespace VideoTube.Controllers
 
             await _userManager.AddToRoleAsync(user, role);
 
-            await _logger.LogAsync(user.Id, user.Email, "Role Changed", $"New Role: {role}");
+            await _logger.LogAsync(user.Id, user.Email!, "Role Changed", $"New Role: {role}");
 
             return RedirectToAction("Users");
         }
@@ -210,7 +205,7 @@ namespace VideoTube.Controllers
         }
 
         // ============================
-        // Add Activity Logs
+        // ACTIVITY LOGS (FIXED)
         // ============================
         public IActionResult ActivityLogs()
         {
@@ -218,6 +213,10 @@ namespace VideoTube.Controllers
                 .OrderByDescending(l => l.Timestamp)
                 .Take(200)
                 .ToList();
+
+            // ❌ Removed invalid logging code
+            // ❌ Removed await inside non-async method
+            // ❌ Removed undefined variables (user, role)
 
             return View(logs);
         }

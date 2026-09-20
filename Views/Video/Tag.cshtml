@@ -1,0 +1,22 @@
+@model List<VideoTube.Models.Video>
+
+<h2>Videos tagged "@ViewBag.TagName"</h2>
+
+@if (!Model.Any())
+{
+    <p>No videos found for this tag.</p>
+}
+else
+{
+    <div class="row">
+        @foreach (var video in Model)
+        {
+            <div class="col-md-3 mb-4">
+                <a asp-action="Watch" asp-route-id="@video.Id">
+                    <img src="/thumbnails/@video.ThumbnailFileName" class="img-fluid" />
+                </a>
+                <p>@video.Title</p>
+            </div>
+        }
+    </div>
+}
