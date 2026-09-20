@@ -35,35 +35,79 @@ namespace VideoTube.Controllers
             return View(categories);
         }
 
+        public IActionResult Details(int id)
+        {
+            var category = _context.Categories.FirstOrDefault(c => c.Id == id);
+            if (category == null)
+                return NotFound();
 
+            var videos = _context.Videos
+                .Where(v => v.CategoryId == id)
+                .OrderByDescending(v => v.UploadDate)
+                .ToList();
+
+            var vm = new CategoryDetailsViewModel
+            {
+                Id = category.Id,
+                Name = category.Name,
+                Description = category.Description,
+                Videos = videos
+            };
+
+            return View(vm);
+        }
+
+        public IActionResult Create()
+        {
+            return View();
+        }
 
         [HttpPost]
-        public async Task<IActionResult> Create(string name)
+        public async Task<IActionResult> Create(Category model)
         {
-            if (!string.IsNullOrWhiteSpace(name))
-            {
-                var category = new Category
-                {
-                    Name = name.Trim()
-                };
+            if (!ModelState.IsValid)
+                return View(model);
 
-                _context.Categories.Add(category);
-                await _context.SaveChangesAsync();
-            }
+            _context.Categories.Add(model);
+            await _context.SaveChangesAsync();
+
+            return RedirectToAction("Index");
+        }
+
+        public IActionResult Edit(int id)
+        {
+            var category = _context.Categories.FirstOrDefault(c => c.Id == id);
+            if (category == null)
+                return NotFound();
+
+            return View(category);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Edit(Category model)
+        {
+            if (!ModelState.IsValid)
+                return View(model);
+
+            var category = _context.Categories.FirstOrDefault(c => c.Id == model.Id);
+            if (category == null)
+                return NotFound();
+
+            category.Name = model.Name;
+            category.Description = model.Description;
+
+            await _context.SaveChangesAsync();
 
             return RedirectToAction("Index");
         }
 
         public async Task<IActionResult> Delete(int id)
         {
-            var category = _context.Categories
-                .FirstOrDefault(c => c.Id == id);
-
+            var category = _context.Categories.FirstOrDefault(c => c.Id == id);
             if (category == null)
                 return RedirectToAction("Index");
 
-            int videoCount = _context.Videos
-                .Count(v => v.CategoryId == id);
+            int videoCount = _context.Videos.Count(v => v.CategoryId == id);
 
             if (videoCount > 0)
             {
@@ -74,7 +118,6 @@ namespace VideoTube.Controllers
             }
 
             _context.Categories.Remove(category);
-
             await _context.SaveChangesAsync();
 
             return RedirectToAction("Index");

@@ -207,20 +207,29 @@ namespace VideoTube.Controllers
 
             var user = await _userManager.GetUserAsync(User);
 
+            // Progress
             if (user != null)
             {
                 ViewBag.Progress =
                     _context.WatchProgress
-                        .Where(p =>
-                            p.UserId == user.Id &&
-                            p.VideoId == id)
+                        .Where(p => p.UserId == user.Id && p.VideoId == id)
                         .Select(p => p.CurrentSeconds)
                         .FirstOrDefault();
             }
+            else
+            {
+                ViewBag.Progress = 0;
+            }
 
-            ViewBag.IsFavorited = _context.FavoriteVideos
-                .Any(f => f.UserId == user!.Id && f.VideoId == id);
+            // Favorites (FIXED)
+            ViewBag.IsFavorited = false;
+            if (user != null)
+            {
+                ViewBag.IsFavorited = _context.FavoriteVideos
+                    .Any(f => f.UserId == user.Id && f.VideoId == id);
+            }
 
+            // Related videos
             ViewBag.RelatedVideos = _context.Videos
                 .Include(v => v.Category)
                 .Where(v => v.Id != video.Id && v.CategoryId == video.CategoryId)

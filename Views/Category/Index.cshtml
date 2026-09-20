@@ -40,12 +40,12 @@
                              class="me-3" />
 
                         <div>
-                            <a asp-controller="Video"
-                               asp-action="Index"
-                               asp-route-category="@category.Name"
-                               class="text-decoration-none">
-                                @category.Name
-                            </a>
+<a asp-controller="Category"
+   asp-action="Details"
+   asp-route-id="@category.Id"
+   class="text-decoration-none">
+    @category.Name
+</a>
 
                             <span class="badge bg-secondary ms-2">
                                 @category.VideoCount

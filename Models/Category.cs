@@ -6,5 +6,7 @@ namespace VideoTube.Models
         public string Name { get; set; } = string.Empty;
 
         public ICollection<Video> Videos { get; set; } = new List<Video>();
+
+        public string? Description { get; set; }   
     }
 }
