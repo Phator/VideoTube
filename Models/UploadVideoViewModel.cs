@@ -16,6 +16,8 @@ namespace VideoTube.Models
         [Required]
         public IFormFile VideoFile { get; set; } = null!;
 
+        // ⭐ Always initialized, never null
+        // Prevents crashes in Upload, Edit, and Watch
         public string Tags { get; set; } = "";
     }
 }

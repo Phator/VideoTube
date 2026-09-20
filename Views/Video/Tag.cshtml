@@ -1,22 +1,46 @@
 @model List<VideoTube.Models.Video>
 
-<h2>Videos tagged "@ViewBag.TagName"</h2>
+<h2 class="mb-4">Videos tagged "@ViewBag.TagName"</h2>
 
-@if (!Model.Any())
+@if (Model == null || !Model.Any())
 {
     <p>No videos found for this tag.</p>
 }
 else
 {
     <div class="row">
+
         @foreach (var video in Model)
         {
             <div class="col-md-3 mb-4">
-                <a asp-action="Watch" asp-route-id="@video.Id">
-                    <img src="/thumbnails/@video.ThumbnailFileName" class="img-fluid" />
+
+                <a asp-action="Watch"
+                   asp-route-id="@video.Id"
+                   class="text-decoration-none text-dark">
+
+                    <div class="card shadow-sm">
+
+                        <img src="/thumbnails/@video.ThumbnailFileName"
+                             class="card-img-top"
+                             alt="@video.Title"
+                             style="height: 150px; object-fit: cover;" />
+
+                        <div class="card-body py-2">
+
+                            <h6 class="mb-1">@video.Title</h6>
+
+                            <small class="text-muted">
+                                @video.Duration • @video.Views views
+                            </small>
+
+                        </div>
+
+                    </div>
+
                 </a>
-                <p>@video.Title</p>
+
             </div>
         }
+
     </div>
 }

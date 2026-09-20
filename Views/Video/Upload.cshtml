@@ -8,8 +8,7 @@
     <div class="mb-3">
         <label asp-for="Title" class="form-label"></label>
         <input asp-for="Title" class="form-control" />
-        <span asp-validation-for="Title"
-        class="text-danger"></span>
+        <span asp-validation-for="Title" class="text-danger"></span>
     </div>
 
     <!-- Description -->
@@ -20,9 +19,11 @@
 
     <!-- Tags -->
     <div class="mb-3">
-        <label asp-for="Tags" class="form-label"></label>
-        <input asp-for="Tags" class="form-control" />
-    </div>  
+        <label asp-for="Tags" class="form-label">Tags (comma-separated)</label>
+        <input asp-for="Tags"
+               class="form-control"
+               placeholder="example: gaming, tutorial, funny" />
+    </div>
 
     <!-- Category -->
     <div class="mb-3">
@@ -31,22 +32,23 @@
         <select asp-for="CategoryId" class="form-select">
             <option value="">Select Category</option>
 
-@if (ViewBag.Categories != null)
-{
-    @foreach (var category in ViewBag.Categories)
-    {
-        <option value="@category.Id">
-            @category.Name
-        </option>
-    }
-}
+            @if (ViewBag.Categories != null)
+            {
+                foreach (var category in ViewBag.Categories)
+                {
+                    <option value="@category.Id">@category.Name</option>
+                }
+            }
         </select>
+
+        <span asp-validation-for="CategoryId" class="text-danger"></span>
     </div>
 
     <!-- Video File -->
     <div class="mb-3">
         <label asp-for="VideoFile" class="form-label"></label>
         <input asp-for="VideoFile" type="file" class="form-control" />
+        <span asp-validation-for="VideoFile" class="text-danger"></span>
     </div>
 
     <!-- Submit -->

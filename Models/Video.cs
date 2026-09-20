@@ -26,6 +26,7 @@ namespace VideoTube.Models
         public string UploadedByUserId { get; set; } = "";
         public ApplicationUser? UploadedByUser { get; set; }
 
+        // Always initialized, never null, never crashes
         public ICollection<VideoTag> VideoTags { get; set; } = new List<VideoTag>();
     }
 }

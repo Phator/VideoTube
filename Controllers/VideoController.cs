@@ -1,9 +1,9 @@
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using System.Diagnostics;
 using System.Globalization;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using VideoTube.Data;
 using VideoTube.Models;
 
@@ -12,6 +12,9 @@ namespace VideoTube.Controllers
     [Authorize]
     public class VideoController : Controller
     {
+        private const string VideosFolder = "videos";
+        private const string ThumbnailsFolder = "thumbnails";
+
         private readonly ApplicationDbContext _context;
         private readonly IWebHostEnvironment _environment;
         private readonly UserManager<ApplicationUser> _userManager;
@@ -26,13 +29,36 @@ namespace VideoTube.Controllers
             _userManager = userManager;
         }
 
+        private async Task<ApplicationUser?> GetCurrentUserAsync()
+        {
+            return await _userManager.GetUserAsync(User);
+        }
+
+        private async Task LoadCategoriesAsync()
+        {
+            ViewBag.Categories = await _context.Categories
+                .OrderBy(c => c.Name)
+                .ToListAsync();
+        }
+
+        private static void DeleteFileIfExists(string path)
+        {
+            if (System.IO.File.Exists(path))
+            {
+                System.IO.File.Delete(path);
+            }
+        }
+
         // ---------------------------------------------------------
-        // FAVORITE (Legacy Add-Only)
+        // FAVORITE
         // ---------------------------------------------------------
+
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> Favorite(int id)
         {
-            var user = await _userManager.GetUserAsync(User);
+            var user = await GetCurrentUserAsync();
+
             if (user == null)
                 return RedirectToAction("Login", "Account");
 
@@ -50,15 +76,17 @@ namespace VideoTube.Controllers
                 await _context.SaveChangesAsync();
             }
 
-            return RedirectToAction("Watch", new { id });
+            return RedirectToAction(nameof(Watch), new { id });
         }
 
         // ---------------------------------------------------------
-        // VIDEO LISTING
+        // INDEX
         // ---------------------------------------------------------
-        public IActionResult Index(string? search, string? category)
+
+        public async Task<IActionResult> Index(string? search, string? category)
         {
-            var videos = _context.Videos.AsQueryable();
+            IQueryable<Video> videos = _context.Videos
+                .Include(v => v.Category);
 
             if (!string.IsNullOrWhiteSpace(search))
             {
@@ -74,155 +102,161 @@ namespace VideoTube.Controllers
                     v.Category.Name == category);
             }
 
-            ViewBag.PopularVideos = _context.Videos
+            ViewBag.PopularVideos = await _context.Videos
                 .OrderByDescending(v => v.Views)
                 .Take(5)
-                .ToList();
+                .ToListAsync();
 
-            ViewBag.RecentVideos = _context.Videos
+            ViewBag.RecentVideos = await _context.Videos
                 .OrderByDescending(v => v.UploadDate)
                 .Take(5)
-                .ToList();
+                .ToListAsync();
 
-            return View(videos
+            var list = await videos
                 .OrderByDescending(v => v.UploadDate)
-                .ToList());
+                .ToListAsync();
+
+            return View(list);
         }
 
         // ---------------------------------------------------------
-        // UPLOAD VIDEO (GET)
+        // UPLOAD GET
         // ---------------------------------------------------------
-        public IActionResult Upload()
-        {
-            ViewBag.Categories = _context.Categories
-                .OrderBy(c => c.Name)
-                .ToList();
 
+        public async Task<IActionResult> Upload()
+        {
+            await LoadCategoriesAsync();
             return View();
         }
 
         // ---------------------------------------------------------
-        // UPLOAD VIDEO (POST)
+        // UPLOAD POST
         // ---------------------------------------------------------
+
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> Upload(UploadVideoViewModel model)
         {
             if (!ModelState.IsValid)
+            {
+                await LoadCategoriesAsync();
                 return View(model);
+            }
 
-            var user = await _userManager.GetUserAsync(User);
+            var user = await GetCurrentUserAsync();
 
-            // --- Save Video File ---
-            string videoFolder = Path.Combine(_environment.WebRootPath, "videos");
+            string videoFolder =
+                Path.Combine(_environment.WebRootPath, VideosFolder);
+
             Directory.CreateDirectory(videoFolder);
 
-            string fileName = Guid.NewGuid() + Path.GetExtension(model.VideoFile.FileName);
-            string filePath = Path.Combine(videoFolder, fileName);
+            string fileName =
+                $"{Guid.NewGuid()}{Path.GetExtension(model.VideoFile.FileName)}";
 
-            using (var stream = new FileStream(filePath, FileMode.Create))
+            string filePath =
+                Path.Combine(videoFolder, fileName);
+
+            await using (var stream =
+                new FileStream(filePath, FileMode.Create))
             {
                 await model.VideoFile.CopyToAsync(stream);
             }
 
-            // --- Generate Thumbnail ---
-            string thumbnailFolder = Path.Combine(_environment.WebRootPath, "thumbnails");
+            string thumbnailFolder =
+                Path.Combine(_environment.WebRootPath, ThumbnailsFolder);
+
             Directory.CreateDirectory(thumbnailFolder);
 
-            string thumbnailFileName = Guid.NewGuid() + ".jpg";
-            string thumbnailPath = Path.Combine(thumbnailFolder, thumbnailFileName);
+            string thumbnailFileName = $"{Guid.NewGuid()}.jpg";
 
-            var process = new Process
+            string thumbnailPath =
+                Path.Combine(thumbnailFolder, thumbnailFileName);
+
+            try
             {
-                StartInfo =
+                using var process = new Process
                 {
-                    FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffmpeg.exe",
-                    Arguments = $"-i \"{filePath}\" -vf \"select='gt(scene,0.4)'\" -vframes 1 \"{thumbnailPath}\"",
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                }
-            };
+                    StartInfo =
+                    {
+                        FileName = "ffmpeg",
+                        Arguments =
+                            $"-i \"{filePath}\" -vf \"select='gt(scene,0.4)'\" -vframes 1 \"{thumbnailPath}\"",
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    }
+                };
 
-            process.Start();
-            process.WaitForExit();
-
-            // --- Get Duration ---
-            string duration = "00:00";
-
-            var probeProcess = new Process
+                process.Start();
+                process.WaitForExit();
+            }
+            catch
             {
-                StartInfo =
-                {
-                    FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffprobe.exe",
-                    Arguments = $"-v error -show_entries format=duration -of default:noprint_wrappers=1:nokey=1 \"{filePath}\"",
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                }
-            };
-
-            probeProcess.Start();
-            string output = probeProcess.StandardOutput.ReadToEnd();
-            probeProcess.WaitForExit();
-
-            if (double.TryParse(output.Trim(), CultureInfo.InvariantCulture, out double seconds))
-            {
-                duration = TimeSpan.FromSeconds(seconds).ToString(@"hh\:mm\:ss");
+                thumbnailFileName = string.Empty;
             }
 
-            // --- Save to DB FIRST (fixes your build error) ---
+            string duration = "00:00";
+
+            try
+            {
+                using var probeProcess = new Process
+                {
+                    StartInfo =
+                    {
+                        FileName = "ffprobe",
+                        Arguments =
+                            $"-v error -show_entries format=duration -of default:noprint_wrappers=1:nokey=1 \"{filePath}\"",
+                        RedirectStandardOutput = true,
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    }
+                };
+
+                probeProcess.Start();
+
+                string output =
+                    probeProcess.StandardOutput.ReadToEnd();
+
+                probeProcess.WaitForExit();
+
+                if (double.TryParse(
+                    output.Trim(),
+                    CultureInfo.InvariantCulture,
+                    out double seconds))
+                {
+                    duration = TimeSpan
+                        .FromSeconds(seconds)
+                        .ToString(@"hh\:mm\:ss");
+                }
+            }
+            catch
+            {
+            }
+
             var video = new Video
             {
                 Title = model.Title,
                 Description = model.Description,
                 Duration = duration,
-                CategoryId = model.CategoryId,
+                CategoryId = model.CategoryId == 0
+                    ? null
+                    : model.CategoryId,
                 FileName = fileName,
                 ThumbnailFileName = thumbnailFileName,
-                UploadDate = DateTime.Now,
+                UploadDate = DateTime.UtcNow,
                 Views = 0,
-                UploadedByUserId = user!.Id
+                UploadedByUserId = user?.Id ?? string.Empty
             };
 
             _context.Videos.Add(video);
             await _context.SaveChangesAsync();
 
-            // --- Add Tags ---
-            if (!string.IsNullOrWhiteSpace(model.Tags))
-            {
-                var tagNames = model.Tags
-                    .Split(',', StringSplitOptions.RemoveEmptyEntries)
-                    .Select(t => t.Trim().ToLower())
-                    .Distinct()
-                    .ToList();
-
-                foreach (var tagName in tagNames)
-                {
-                    var tag = await _context.Tags
-                        .FirstOrDefaultAsync(t => t.Name == tagName);
-
-                    if (tag == null)
-                    {
-                        tag = new Tag { Name = tagName };
-                        _context.Tags.Add(tag);
-                        await _context.SaveChangesAsync();
-                    }
-
-                    _context.VideoTags.Add(new VideoTag
-                    {
-                        VideoId = video.Id,
-                        TagId = tag.Id
-                    });
-                }
-
-                await _context.SaveChangesAsync();
-            }
-
-            return RedirectToAction("Index");
+            return RedirectToAction(nameof(Index));
         }
 
         // ---------------------------------------------------------
-        // WATCH VIDEO
+        // WATCH
         // ---------------------------------------------------------
+
         public async Task<IActionResult> Watch(int id)
         {
             var video = await _context.Videos
@@ -235,7 +269,7 @@ namespace VideoTube.Controllers
             video.Views++;
             await _context.SaveChangesAsync();
 
-            var user = await _userManager.GetUserAsync(User);
+            var user = await GetCurrentUserAsync();
 
             ViewBag.Progress = 0;
             ViewBag.IsFavorited = false;
@@ -243,17 +277,21 @@ namespace VideoTube.Controllers
             if (user != null)
             {
                 ViewBag.Progress = await _context.WatchProgress
-                    .Where(p => p.UserId == user.Id && p.VideoId == id)
+                    .Where(p =>
+                        p.UserId == user.Id &&
+                        p.VideoId == id)
                     .Select(p => p.CurrentSeconds)
                     .FirstOrDefaultAsync();
 
                 ViewBag.IsFavorited = await _context.FavoriteVideos
-                    .AnyAsync(f => f.UserId == user.Id && f.VideoId == id);
+                    .AnyAsync(f =>
+                        f.UserId == user.Id &&
+                        f.VideoId == id);
             }
 
             ViewBag.RelatedVideos = await _context.Videos
                 .Include(v => v.Category)
-                .Where(v => v.Id != video.Id)
+                .Where(v => v.Id != id)
                 .OrderByDescending(v => v.Views)
                 .Take(5)
                 .ToListAsync();
@@ -261,211 +299,142 @@ namespace VideoTube.Controllers
             return View(video);
         }
 
-
-
-
         // ---------------------------------------------------------
-        // EDIT VIDEO
+        // EDIT GET
         // ---------------------------------------------------------
-        public IActionResult Edit(int id)
+
+        public async Task<IActionResult> Edit(int id)
         {
-            var video = _context.Videos
-                .Include(v => v.VideoTags)
-                    .ThenInclude(vt => vt.Tag)
-                .FirstOrDefault(v => v.Id == id);
+            var video = await _context.Videos
+                .FirstOrDefaultAsync(v => v.Id == id);
 
             if (video == null)
                 return NotFound();
 
-            ViewBag.Categories = _context.Categories
-                .OrderBy(c => c.Name)
-                .ToList();
-
-            // Convert tags to comma-separated string
-            ViewBag.Tags = string.Join(", ", video.VideoTags.Select(vt => vt.Tag.Name));
+            await LoadCategoriesAsync();
 
             return View(video);
         }
 
+        // ---------------------------------------------------------
+        // EDIT POST
+        // ---------------------------------------------------------
+
         [HttpPost]
-        public async Task<IActionResult> Edit(Video model, string tags)
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Edit(Video model)
         {
-            var video = _context.Videos.FirstOrDefault(v => v.Id == model.Id);
+            var video = await _context.Videos
+                .FirstOrDefaultAsync(v => v.Id == model.Id);
+
             if (video == null)
                 return NotFound();
 
             video.Title = model.Title;
             video.Description = model.Description;
-            video.CategoryId = model.CategoryId;
-
-            // Remove old tags
-            var oldTags = _context.VideoTags.Where(vt => vt.VideoId == video.Id);
-            _context.VideoTags.RemoveRange(oldTags);
-            await _context.SaveChangesAsync();
-
-            // Add new tags
-            if (!string.IsNullOrWhiteSpace(tags))
-            {
-                var tagNames = tags
-                    .Split(',', StringSplitOptions.RemoveEmptyEntries)
-                    .Select(t => t.Trim().ToLower())
-                    .Distinct()
-                    .ToList();
-
-                foreach (var tagName in tagNames)
-                {
-                    var tag = await _context.Tags
-                        .FirstOrDefaultAsync(t => t.Name == tagName);
-
-                    if (tag == null)
-                    {
-                        tag = new Tag { Name = tagName };
-                        _context.Tags.Add(tag);
-                        await _context.SaveChangesAsync();
-                    }
-
-                    _context.VideoTags.Add(new VideoTag
-                    {
-                        VideoId = video.Id,
-                        TagId = tag.Id
-                    });
-                }
-            }
+            video.CategoryId =
+                model.CategoryId == 0
+                    ? null
+                    : model.CategoryId;
 
             await _context.SaveChangesAsync();
-            return RedirectToAction("Index");
+
+            return RedirectToAction(
+                nameof(Watch),
+                new { id = video.Id });
         }
 
         // ---------------------------------------------------------
-        // DELETE VIDEO
+        // DELETE GET
         // ---------------------------------------------------------
-        public IActionResult Delete(int id)
+
+        public async Task<IActionResult> Delete(int id)
         {
-            var video = _context.Videos.FirstOrDefault(v => v.Id == id);
+            var video = await _context.Videos
+                .FirstOrDefaultAsync(v => v.Id == id);
+
             if (video == null)
                 return NotFound();
 
             return View(video);
         }
 
+        // ---------------------------------------------------------
+        // DELETE POST
+        // ---------------------------------------------------------
+
         [HttpPost]
         [ActionName("Delete")]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
-            var video = _context.Videos.FirstOrDefault(v => v.Id == id);
+            var video = await _context.Videos
+                .FirstOrDefaultAsync(v => v.Id == id);
+
             if (video == null)
-                return RedirectToAction("Index");
-
-            string videoPath = Path.Combine(_environment.WebRootPath, "videos", video.FileName);
-            if (System.IO.File.Exists(videoPath))
-                System.IO.File.Delete(videoPath);
-
-            if (!string.IsNullOrEmpty(video.ThumbnailFileName))
             {
-                string thumbnailPath = Path.Combine(_environment.WebRootPath, "thumbnails", video.ThumbnailFileName);
-                if (System.IO.File.Exists(thumbnailPath))
-                    System.IO.File.Delete(thumbnailPath);
+                return RedirectToAction(nameof(Index));
+            }
+
+            DeleteFileIfExists(
+                Path.Combine(
+                    _environment.WebRootPath,
+                    VideosFolder,
+                    video.FileName));
+
+            if (!string.IsNullOrWhiteSpace(
+                video.ThumbnailFileName))
+            {
+                DeleteFileIfExists(
+                    Path.Combine(
+                        _environment.WebRootPath,
+                        ThumbnailsFolder,
+                        video.ThumbnailFileName));
             }
 
             _context.Videos.Remove(video);
+
             await _context.SaveChangesAsync();
 
-            return RedirectToAction("Index");
+            return RedirectToAction(nameof(Index));
         }
 
         // ---------------------------------------------------------
-        // FAVORITES LIST
+        // FAVORITES
         // ---------------------------------------------------------
+
         public async Task<IActionResult> MyFavorites()
         {
-            var user = await _userManager.GetUserAsync(User);
+            var user = await GetCurrentUserAsync();
 
-            var favorites = _context.FavoriteVideos
-                .Where(f => f.UserId == user!.Id)
+            if (user == null)
+                return RedirectToAction("Login", "Account");
+
+            var favorites = await _context.FavoriteVideos
+                .Where(f => f.UserId == user.Id)
                 .Select(f => f.Video!)
-                .ToList();
+                .ToListAsync();
 
             return View(favorites);
         }
 
         // ---------------------------------------------------------
-        // FAVORITE TOGGLE (AJAX)
+        // SAVE PROGRESS
         // ---------------------------------------------------------
+
         [HttpPost]
-        public async Task<IActionResult> ToggleFavorite([FromBody] FavoriteToggleRequest request)
+        public async Task<IActionResult> SaveProgress(
+            [FromBody] SaveProgressRequest request)
         {
-            var user = await _userManager.GetUserAsync(User);
-            if (user == null)
-                return Unauthorized();
-
-            var fav = await _context.FavoriteVideos
-                .FirstOrDefaultAsync(f => f.UserId == user.Id && f.VideoId == request.Id);
-
-            bool nowFavorited;
-
-            if (fav == null)
-            {
-                _context.FavoriteVideos.Add(new FavoriteVideo
-                {
-                    UserId = user.Id,
-                    VideoId = request.Id
-                });
-
-                nowFavorited = true;
-            }
-            else
-            {
-                _context.FavoriteVideos.Remove(fav);
-                nowFavorited = false;
-            }
-
-            await _context.SaveChangesAsync();
-
-            return Json(new { favorited = nowFavorited });
-        }
-
-        public class FavoriteToggleRequest
-        {
-            public int Id { get; set; }
-        }
-
-        // ---------------------------------------------------------
-        // HISTORY
-        // ---------------------------------------------------------
-        public async Task<IActionResult> History()
-        {
-            var user = await _userManager.GetUserAsync(User);
-
-            if (user == null)
-                return RedirectToAction("Login", "Account");
-
-            var history =
-                _context.WatchHistory
-                    .Where(h => h.UserId == user.Id)
-                    .OrderByDescending(h => h.WatchedDate)
-                    .Select(h => h.Video!)
-                    .Distinct()
-                    .ToList();
-
-            return View(history);
-        }
-
-        // ---------------------------------------------------------
-        // WATCH PROGRESS
-        // ---------------------------------------------------------
-        [HttpPost]
-        public async Task<IActionResult> SaveProgress([FromBody] SaveProgressRequest request)
-        {
-            var user = await _userManager.GetUserAsync(User);
+            var user = await GetCurrentUserAsync();
 
             if (user == null)
                 return Unauthorized();
 
-            var progress =
-                _context.WatchProgress
-                    .FirstOrDefault(p =>
-                        p.UserId == user.Id &&
-                        p.VideoId == request.VideoId);
+            var progress = await _context.WatchProgress
+                .FirstOrDefaultAsync(p =>
+                    p.UserId == user.Id &&
+                    p.VideoId == request.VideoId);
 
             if (progress == null)
             {
@@ -479,7 +448,7 @@ namespace VideoTube.Controllers
             }
 
             progress.CurrentSeconds = request.CurrentSeconds;
-            progress.LastUpdated = DateTime.Now;
+            progress.LastUpdated = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
 
@@ -495,185 +464,82 @@ namespace VideoTube.Controllers
         // ---------------------------------------------------------
         // CONTINUE WATCHING
         // ---------------------------------------------------------
+
         public async Task<IActionResult> ContinueWatching()
         {
-            var user = await _userManager.GetUserAsync(User);
+            var user = await GetCurrentUserAsync();
 
-            var progress =
-                _context.WatchProgress
-                    .Include(p => p.Video)
-                    .Where(p => p.UserId == user!.Id)
-                    .OrderByDescending(p => p.LastUpdated)
-                    .ToList();
+            if (user == null)
+                return RedirectToAction("Login", "Account");
+
+            var progress = await _context.WatchProgress
+                .Include(p => p.Video)
+                .Where(p => p.UserId == user.Id)
+                .OrderByDescending(p => p.LastUpdated)
+                .ToListAsync();
 
             return View(progress);
         }
 
         // ---------------------------------------------------------
-        // EDIT THUMBNAIL (GET)
+        // STREAM VIDEO
         // ---------------------------------------------------------
-        [HttpGet]
-        public async Task<IActionResult> EditThumbnail(int id)
+
+        [AllowAnonymous]
+        public IActionResult StreamVideo(string fileName)
         {
-            var video = await _context.Videos.FindAsync(id);
-            if (video == null) return NotFound();
+            if (string.IsNullOrWhiteSpace(fileName))
+                return BadRequest("fileName required");
 
-            var vm = new EditThumbnailViewModel
-            {
-                VideoId = id,
-                CurrentThumbnail = video.ThumbnailFileName
-            };
+            string path = Path.Combine(
+                _environment.WebRootPath,
+                VideosFolder,
+                fileName);
 
-            return View(vm);
+            if (!System.IO.File.Exists(path))
+                return NotFound();
+
+            var stream = new FileStream(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read);
+
+            return File(
+                stream,
+                "video/mp4",
+                enableRangeProcessing: true);
         }
 
         // ---------------------------------------------------------
-        // EDIT THUMBNAIL (POST)
+        // DEBUG VIDEO FILE
         // ---------------------------------------------------------
-        [HttpPost]
-        public async Task<IActionResult> EditThumbnail(EditThumbnailViewModel model)
+
+        [AllowAnonymous]
+        public IActionResult DebugVideoFile(int id)
         {
-            var video = await _context.Videos.FindAsync(model.VideoId);
-            if (video == null) return NotFound();
+            var video = _context.Videos
+                .FirstOrDefault(v => v.Id == id);
 
-            string videoPath = Path.Combine(_environment.WebRootPath, "videos", video.FileName);
-            string thumbnailFolder = Path.Combine(_environment.WebRootPath, "thumbnails");
-            Directory.CreateDirectory(thumbnailFolder);
+            if (video == null)
+                return Content("Video not found");
 
-            string newThumb = Guid.NewGuid() + ".jpg";
-            string newThumbPath = Path.Combine(thumbnailFolder, newThumb);
+            string path = Path.Combine(
+                _environment.WebRootPath,
+                VideosFolder,
+                video.FileName);
 
-            // Get video duration
-            var probe = new Process
-            {
-                StartInfo =
-                {
-                    FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffprobe.exe",
-                    Arguments = $"-v error -show_entries format=duration -of default:noprint_wrappers=1:nokey=1 \"{videoPath}\"",
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                }
-            };
+            bool exists = System.IO.File.Exists(path);
 
-            probe.Start();
-            string durationOutput = probe.StandardOutput.ReadToEnd();
-            probe.WaitForExit();
+            long size = exists
+                ? new FileInfo(path).Length
+                : 0;
 
-            double.TryParse(durationOutput.Trim(), CultureInfo.InvariantCulture, out double videoSeconds);
-
-            // Custom thumbnail upload
-            if (model.CustomThumbnail != null)
-            {
-                using var stream = new FileStream(newThumbPath, FileMode.Create);
-                await model.CustomThumbnail.CopyToAsync(stream);
-            }
-            else if (model.TimestampSeconds.HasValue)
-            {
-                int requestedSeconds = model.TimestampSeconds.Value;
-
-                if (requestedSeconds > videoSeconds)
-                    requestedSeconds = (int)videoSeconds - 1;
-
-                if (requestedSeconds < 0)
-                    requestedSeconds = 0;
-
-                TimeSpan ts = TimeSpan.FromSeconds(requestedSeconds);
-                string timestamp = ts.ToString(@"hh\:mm\:ss");
-
-                var process = new Process
-                {
-                    StartInfo =
-                    {
-                        FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffmpeg.exe",
-                        Arguments = $"-i \"{videoPath}\" -ss {timestamp} -vframes 1 \"{newThumbPath}\"",
-                        UseShellExecute = false,
-                        CreateNoWindow = true
-                    }
-                };
-
-                process.Start();
-                process.WaitForExit();
-            }
-            else
-            {
-                var process = new Process
-                {
-                    StartInfo =
-                    {
-                        FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffmpeg.exe",
-                        Arguments = $"-i \"{videoPath}\" -vf \"select='gt(scene,0.4)'\" -vframes 1 \"{newThumbPath}\"",
-                        UseShellExecute = false,
-                        CreateNoWindow = true
-                    }
-                };
-
-                process.Start();
-                process.WaitForExit();
-            }
-
-            video.ThumbnailFileName = newThumb;
-            await _context.SaveChangesAsync();
-
-            return RedirectToAction("Watch", new { id = video.Id });
-        }
-
-        // ---------------------------------------------------------
-        // REBUILD ALL VIDEO DURATIONS
-        // ---------------------------------------------------------
-        [HttpPost]
-        public async Task<IActionResult> RebuildDurations()
-        {
-            var videos = _context.Videos.ToList();
-
-            foreach (var video in videos)
-            {
-                string videoPath = Path.Combine(_environment.WebRootPath, "videos", video.FileName);
-
-                if (!System.IO.File.Exists(videoPath))
-                    continue;
-
-                var probeProcess = new Process
-                {
-                    StartInfo =
-                    {
-                        FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffprobe.exe",
-                        Arguments = $"-v error -show_entries format=duration -of default:noprint_wrappers=1:nokey=1 \"{videoPath}\"",
-                        RedirectStandardOutput = true,
-                        UseShellExecute = false,
-                        CreateNoWindow = true
-                    }
-                };
-
-                probeProcess.Start();
-                string output = probeProcess.StandardOutput.ReadToEnd();
-                probeProcess.WaitForExit();
-
-                if (double.TryParse(output.Trim(), CultureInfo.InvariantCulture, out double seconds))
-                {
-                    video.Duration = TimeSpan.FromSeconds(seconds).ToString(@"hh\:mm\:ss");
-                }
-            }
-
-            await _context.SaveChangesAsync();
-
-            return RedirectToAction("Index");
-        }
-
-        // ---------------------------------------------------------
-        // TAG SEARCH
-        // ---------------------------------------------------------
-        public async Task<IActionResult> Tag(string name)
-        {
-            var videos = await _context.VideoTags
-                .Where(vt => vt.Tag.Name == name)
-                .Select(vt => vt.Video)
-                .Include(v => v.Category)
-                .ToListAsync();
-
-            ViewBag.TagName = name;
-
-            return View(videos);
+            return Content(
+                $"File exists: {exists}\n" +
+                $"Size: {size}\n" +
+                $"DB FileName: {video.FileName}\n" +
+                $"Full Path: {path}");
         }
     }
 }
