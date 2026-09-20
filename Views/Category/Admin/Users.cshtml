@@ -1,0 +1,64 @@
+@model List<VideoTube.Models.UserWithRolesViewModel>
+
+<h2 class="mb-4">Manage Users</h2>
+
+<table class="table table-striped align-middle">
+    <thead>
+        <tr>
+            <th>Email</th>
+            <th>Current Roles</th>
+            <th>Assign Role</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        @foreach (var item in Model)
+        {
+            var user = item.User;
+            var roles = item.Roles;
+
+            <tr>
+                <td>@user.Email</td>
+
+                <td>
+                    @foreach (var role in roles)
+                    {
+                        var badgeClass = role switch
+                        {
+                            "Admin" => "bg-danger",
+                            "Masked" => "bg-warning text-dark",
+                            _ => "bg-primary"
+                        };
+
+                        <span class="badge @badgeClass me-1">@role</span>
+                    }
+                </td>
+
+                <td>
+                    <form asp-action="AssignRole" method="post" class="d-flex">
+                        <input type="hidden" name="id" value="@user.Id" />
+
+                        <select name="role" class="form-select me-2">
+                            <option value="User">User</option>
+                            <option value="Admin">Admin</option>
+                            <option value="Masked">Masked</option>
+                        </select>
+
+                        <button class="btn btn-success btn-sm">Save</button>
+                    </form>
+                </td>
+
+                <td>
+                    <a asp-action="Details"
+                       asp-route-id="@user.Id"
+                       class="btn btn-primary btn-sm">
+                        Details
+                    </a>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<a asp-action="Dashboard" class="btn btn-secondary mt-3">Back</a>

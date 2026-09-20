@@ -1,0 +1,39 @@
+@model IEnumerable<VideoTube.Models.ApplicationUser>
+
+<h2>User Management</h2>
+
+<table class="table table-striped">
+
+    <thead>
+        <tr>
+            <th>Email</th>
+            <th></th>
+        </tr>
+    </thead>
+
+    <tbody>
+
+    @foreach (var user in Model)
+    {
+        <tr>
+
+            <td>
+                @user.Email
+            </td>
+
+            <td>
+
+                <a asp-action="Details"
+                   asp-route-id="@user.Id"
+                   class="btn btn-primary btn-sm">
+                    Manage
+                </a>
+
+            </td>
+
+        </tr>
+    }
+
+    </tbody>
+
+</table>

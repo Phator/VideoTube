@@ -1,7 +1,8 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Authorization;
 using VideoTube.Models;
+using VideoTube.ViewModels;
+using Microsoft.AspNetCore.Authorization;
 
 namespace VideoTube.Controllers
 {
@@ -24,9 +25,6 @@ namespace VideoTube.Controllers
             _logger = logger;
         }
 
-        // ---------------------------------------------------------
-        // INITIAL SETUP — FIRST USER BECOMES ADMIN
-        // ---------------------------------------------------------
         [AllowAnonymous]
         public IActionResult Setup()
         {
@@ -38,20 +36,13 @@ namespace VideoTube.Controllers
             return RedirectToAction("Register");
         }
 
-        // ---------------------------------------------------------
-        // REGISTER (GET)
-        // ---------------------------------------------------------
         [AllowAnonymous]
         public IActionResult Register()
         {
             return View();
         }
 
-        // ---------------------------------------------------------
-        // REGISTER (POST)
-        // ---------------------------------------------------------
         [HttpPost]
-        [AllowAnonymous]
         public async Task<IActionResult> Register(RegisterViewModel model)
         {
             if (!ModelState.IsValid)
@@ -61,7 +52,7 @@ namespace VideoTube.Controllers
             {
                 UserName = model.Email,
                 Email = model.Email,
-                IsDisabled = true  // NEW: all new accounts disabled until approved
+                IsDisabled = true
             };
 
             bool firstUser = !_userManager.Users.Any();
@@ -70,7 +61,8 @@ namespace VideoTube.Controllers
 
             if (result.Succeeded)
             {
-                await _logger.LogAsync(user.Id, user.Email, "User Registered");
+                // Log registration
+                await _logger.LogAsync(user.Id, user.Email!, "User Registered");
 
                 // Assign default role
                 await _userManager.AddToRoleAsync(user, "User");
@@ -94,20 +86,12 @@ namespace VideoTube.Controllers
             return View(model);
         }
 
-        // ---------------------------------------------------------
-        // LOGIN (GET)
-        // ---------------------------------------------------------
-        [AllowAnonymous]
         public IActionResult Login()
         {
             return View();
         }
 
-        // ---------------------------------------------------------
-        // LOGIN (POST)
-        // ---------------------------------------------------------
         [HttpPost]
-        [AllowAnonymous]
         public async Task<IActionResult> Login(LoginViewModel model)
         {
             if (!ModelState.IsValid)
@@ -129,7 +113,7 @@ namespace VideoTube.Controllers
 
             if (result.Succeeded)
             {
-                await _logger.LogAsync(user.Id, user.Email, "User Logged In");
+                await _logger.LogAsync(user!.Id, user.Email!, "User Logged In");
                 return RedirectToAction("Index", "Video");
             }
 
@@ -137,9 +121,6 @@ namespace VideoTube.Controllers
             return View(model);
         }
 
-        // ---------------------------------------------------------
-        // LOGOUT
-        // ---------------------------------------------------------
         public async Task<IActionResult> Logout()
         {
             await _signInManager.SignOutAsync();

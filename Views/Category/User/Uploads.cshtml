@@ -1,0 +1,51 @@
+@model IEnumerable<VideoTube.Models.Video>
+
+<h2>User Uploads</h2>
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info">
+        This user has not uploaded any videos.
+    </div>
+}
+else
+{
+    <table class="table table-striped">
+
+        <thead>
+            <tr>
+                <th>Title</th>
+                <th>Views</th>
+                <th>Uploaded</th>
+                <th></th>
+            </tr>
+        </thead>
+
+        <tbody>
+
+        @foreach (var video in Model)
+        {
+            <tr>
+
+                <td>@video.Title</td>
+
+                <td>@video.Views</td>
+
+                <td>@video.UploadDate</td>
+
+                <td>
+                    <a asp-controller="Video"
+                       asp-action="Watch"
+                       asp-route-id="@video.Id"
+                       class="btn btn-primary btn-sm">
+                        Watch
+                    </a>
+                </td>
+
+            </tr>
+        }
+
+        </tbody>
+
+    </table>
+}
