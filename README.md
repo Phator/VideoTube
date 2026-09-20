@@ -18,7 +18,8 @@ I’m using VideoTube to practice:
 - File uploads  
 - Basic CRUD operations  
 - Working with thumbnails and media files  
-- Bootstrap UI layout  
+- Bootstrap UI layout
+- SQL Server / LocalDB integration
 
 Everything here is experimental and part of my personal development.
 
