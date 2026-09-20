@@ -22,12 +22,20 @@ namespace VideoTube.Controllers
                 {
                     Id = c.Id,
                     Name = c.Name,
-                    VideoCount = _context.Videos.Count(v => v.CategoryId == c.Id)
+                    VideoCount = _context.Videos.Count(v => v.CategoryId == c.Id),
+
+                    ThumbnailFileName = _context.Videos
+                        .Where(v => v.CategoryId == c.Id)
+                        .OrderByDescending(v => v.UploadDate)
+                        .Select(v => v.ThumbnailFileName)
+                        .FirstOrDefault()
                 })
                 .ToList();
 
             return View(categories);
         }
+
+
 
         [HttpPost]
         public async Task<IActionResult> Create(string name)
