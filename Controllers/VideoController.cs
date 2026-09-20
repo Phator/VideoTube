@@ -541,5 +541,23 @@ namespace VideoTube.Controllers
                 $"DB FileName: {video.FileName}\n" +
                 $"Full Path: {path}");
         }
+
+        // ---------------------------------------------------------
+        // Tags
+        // ---------------------------------------------------------
+        public IActionResult Tags()
+        {
+            return RedirectToAction("All", "Tag");
+        }
+
+        public async Task<IActionResult> All()
+        {
+            var tags = await _context.Tags
+                .OrderBy(t => t.Name)
+                .ToListAsync();
+
+            return View(tags);
+        }
+
     }
 }

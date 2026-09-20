@@ -3,8 +3,8 @@ namespace VideoTube.Models
     public class Tag
     {
         public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
 
-        // Always initialized, never null
-        public string Name { get; set; } = "";
+        public ICollection<VideoTag> VideoTags { get; set; } = new List<VideoTag>();
     }
 }
