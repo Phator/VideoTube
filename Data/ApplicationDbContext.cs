@@ -27,5 +27,16 @@ namespace VideoTube.Data
             => Set<WatchProgress>();
 
         public DbSet<ActivityLog> ActivityLogs { get; set; }
+
+        public DbSet<Tag> Tags { get; set; }
+        public DbSet<VideoTag> VideoTags { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder builder)
+        {
+            base.OnModelCreating(builder);
+
+            builder.Entity<VideoTag>()
+                .HasKey(vt => new { vt.VideoId, vt.TagId });
+        }
     }
 }

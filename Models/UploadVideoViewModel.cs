@@ -1,5 +1,5 @@
-using Microsoft.AspNetCore.Http;
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Http;
 
 namespace VideoTube.Models
 {
@@ -10,9 +10,12 @@ namespace VideoTube.Models
 
         public string Description { get; set; } = "";
 
-        public int? CategoryId { get; set; }
+        [Required]
+        public int CategoryId { get; set; }
 
         [Required]
-        public IFormFile? VideoFile { get; set; }
+        public IFormFile VideoFile { get; set; } = null!;
+
+        public string Tags { get; set; } = "";
     }
 }

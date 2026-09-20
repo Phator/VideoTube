@@ -134,12 +134,12 @@ namespace VideoTube.Controllers
             var process = new Process
             {
                 StartInfo =
-        {
-            FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffmpeg.exe",
-            Arguments = $"-i \"{filePath}\" -vf \"select='gt(scene,0.4)'\" -vframes 1 \"{thumbnailPath}\"",
-            UseShellExecute = false,
-            CreateNoWindow = true
-        }
+                {
+                    FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffmpeg.exe",
+                    Arguments = $"-i \"{filePath}\" -vf \"select='gt(scene,0.4)'\" -vframes 1 \"{thumbnailPath}\"",
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
             };
 
             process.Start();
@@ -151,13 +151,13 @@ namespace VideoTube.Controllers
             var probeProcess = new Process
             {
                 StartInfo =
-        {
-            FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffprobe.exe",
-            Arguments = $"-v error -show_entries format=duration -of default:noprint_wrappers=1:nokey=1 \"{filePath}\"",
-            RedirectStandardOutput = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        }
+                {
+                    FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffprobe.exe",
+                    Arguments = $"-v error -show_entries format=duration -of default:noprint_wrappers=1:nokey=1 \"{filePath}\"",
+                    RedirectStandardOutput = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
             };
 
             probeProcess.Start();
@@ -169,7 +169,7 @@ namespace VideoTube.Controllers
                 duration = TimeSpan.FromSeconds(seconds).ToString(@"hh\:mm\:ss");
             }
 
-            // --- Save to DB ---
+            // --- Save to DB FIRST (fixes your build error) ---
             var video = new Video
             {
                 Title = model.Title,
@@ -186,18 +186,48 @@ namespace VideoTube.Controllers
             _context.Videos.Add(video);
             await _context.SaveChangesAsync();
 
+            // --- Add Tags ---
+            if (!string.IsNullOrWhiteSpace(model.Tags))
+            {
+                var tagNames = model.Tags
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(t => t.Trim().ToLower())
+                    .Distinct()
+                    .ToList();
+
+                foreach (var tagName in tagNames)
+                {
+                    var tag = await _context.Tags
+                        .FirstOrDefaultAsync(t => t.Name == tagName);
+
+                    if (tag == null)
+                    {
+                        tag = new Tag { Name = tagName };
+                        _context.Tags.Add(tag);
+                        await _context.SaveChangesAsync();
+                    }
+
+                    _context.VideoTags.Add(new VideoTag
+                    {
+                        VideoId = video.Id,
+                        TagId = tag.Id
+                    });
+                }
+
+                await _context.SaveChangesAsync();
+            }
+
             return RedirectToAction("Index");
         }
-
 
         // ---------------------------------------------------------
         // WATCH VIDEO
         // ---------------------------------------------------------
         public async Task<IActionResult> Watch(int id)
         {
-            var video = _context.Videos
+            var video = await _context.Videos
                 .Include(v => v.Category)
-                .FirstOrDefault(v => v.Id == id);
+                .FirstOrDefaultAsync(v => v.Id == id);
 
             if (video == null)
                 return NotFound();
@@ -207,36 +237,43 @@ namespace VideoTube.Controllers
 
             var user = await _userManager.GetUserAsync(User);
 
+            ViewBag.Progress = 0;
+            ViewBag.IsFavorited = false;
+
             if (user != null)
             {
-                ViewBag.Progress =
-                    _context.WatchProgress
-                        .Where(p =>
-                            p.UserId == user.Id &&
-                            p.VideoId == id)
-                        .Select(p => p.CurrentSeconds)
-                        .FirstOrDefault();
+                ViewBag.Progress = await _context.WatchProgress
+                    .Where(p => p.UserId == user.Id && p.VideoId == id)
+                    .Select(p => p.CurrentSeconds)
+                    .FirstOrDefaultAsync();
+
+                ViewBag.IsFavorited = await _context.FavoriteVideos
+                    .AnyAsync(f => f.UserId == user.Id && f.VideoId == id);
             }
 
-            ViewBag.IsFavorited = _context.FavoriteVideos
-                .Any(f => f.UserId == user!.Id && f.VideoId == id);
-
-            ViewBag.RelatedVideos = _context.Videos
+            ViewBag.RelatedVideos = await _context.Videos
                 .Include(v => v.Category)
-                .Where(v => v.Id != video.Id && v.CategoryId == video.CategoryId)
+                .Where(v => v.Id != video.Id)
                 .OrderByDescending(v => v.Views)
                 .Take(5)
-                .ToList();
+                .ToListAsync();
 
             return View(video);
         }
+
+
+
 
         // ---------------------------------------------------------
         // EDIT VIDEO
         // ---------------------------------------------------------
         public IActionResult Edit(int id)
         {
-            var video = _context.Videos.FirstOrDefault(v => v.Id == id);
+            var video = _context.Videos
+                .Include(v => v.VideoTags)
+                    .ThenInclude(vt => vt.Tag)
+                .FirstOrDefault(v => v.Id == id);
+
             if (video == null)
                 return NotFound();
 
@@ -244,11 +281,14 @@ namespace VideoTube.Controllers
                 .OrderBy(c => c.Name)
                 .ToList();
 
+            // Convert tags to comma-separated string
+            ViewBag.Tags = string.Join(", ", video.VideoTags.Select(vt => vt.Tag.Name));
+
             return View(video);
         }
 
         [HttpPost]
-        public async Task<IActionResult> Edit(Video model)
+        public async Task<IActionResult> Edit(Video model, string tags)
         {
             var video = _context.Videos.FirstOrDefault(v => v.Id == model.Id);
             if (video == null)
@@ -257,6 +297,40 @@ namespace VideoTube.Controllers
             video.Title = model.Title;
             video.Description = model.Description;
             video.CategoryId = model.CategoryId;
+
+            // Remove old tags
+            var oldTags = _context.VideoTags.Where(vt => vt.VideoId == video.Id);
+            _context.VideoTags.RemoveRange(oldTags);
+            await _context.SaveChangesAsync();
+
+            // Add new tags
+            if (!string.IsNullOrWhiteSpace(tags))
+            {
+                var tagNames = tags
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(t => t.Trim().ToLower())
+                    .Distinct()
+                    .ToList();
+
+                foreach (var tagName in tagNames)
+                {
+                    var tag = await _context.Tags
+                        .FirstOrDefaultAsync(t => t.Name == tagName);
+
+                    if (tag == null)
+                    {
+                        tag = new Tag { Name = tagName };
+                        _context.Tags.Add(tag);
+                        await _context.SaveChangesAsync();
+                    }
+
+                    _context.VideoTags.Add(new VideoTag
+                    {
+                        VideoId = video.Id,
+                        TagId = tag.Id
+                    });
+                }
+            }
 
             await _context.SaveChangesAsync();
             return RedirectToAction("Index");
@@ -469,19 +543,17 @@ namespace VideoTube.Controllers
             string newThumb = Guid.NewGuid() + ".jpg";
             string newThumbPath = Path.Combine(thumbnailFolder, newThumb);
 
-            // ---------------------------------------------------------
-            // Get video duration (for clamping timestamps)
-            // ---------------------------------------------------------
+            // Get video duration
             var probe = new Process
             {
                 StartInfo =
-        {
-            FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffprobe.exe",
-            Arguments = $"-v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 \"{videoPath}\"",
-            RedirectStandardOutput = true,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        }
+                {
+                    FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffprobe.exe",
+                    Arguments = $"-v error -show_entries format=duration -of default:noprint_wrappers=1:nokey=1 \"{videoPath}\"",
+                    RedirectStandardOutput = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
             };
 
             probe.Start();
@@ -490,9 +562,7 @@ namespace VideoTube.Controllers
 
             double.TryParse(durationOutput.Trim(), CultureInfo.InvariantCulture, out double videoSeconds);
 
-            // ---------------------------------------------------------
-            // 1. Custom thumbnail upload
-            // ---------------------------------------------------------
+            // Custom thumbnail upload
             if (model.CustomThumbnail != null)
             {
                 using var stream = new FileStream(newThumbPath, FileMode.Create);
@@ -500,9 +570,6 @@ namespace VideoTube.Controllers
             }
             else if (model.TimestampSeconds.HasValue)
             {
-                // ---------------------------------------------------------
-                // 2. Timestamp-based FFmpeg (with clamping + HH:MM:SS)
-                // ---------------------------------------------------------
                 int requestedSeconds = model.TimestampSeconds.Value;
 
                 if (requestedSeconds > videoSeconds)
@@ -517,12 +584,12 @@ namespace VideoTube.Controllers
                 var process = new Process
                 {
                     StartInfo =
-            {
-                FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffmpeg.exe",
-                Arguments = $"-i \"{videoPath}\" -ss {timestamp} -vframes 1 \"{newThumbPath}\"",
-                UseShellExecute = false,
-                CreateNoWindow = true
-            }
+                    {
+                        FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffmpeg.exe",
+                        Arguments = $"-i \"{videoPath}\" -ss {timestamp} -vframes 1 \"{newThumbPath}\"",
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    }
                 };
 
                 process.Start();
@@ -530,27 +597,21 @@ namespace VideoTube.Controllers
             }
             else
             {
-                // ---------------------------------------------------------
-                // 3. Scene-detect regeneration (default)
-                // ---------------------------------------------------------
                 var process = new Process
                 {
                     StartInfo =
-            {
-                FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffmpeg.exe",
-                Arguments = $"-i \"{videoPath}\" -vf \"select='gt(scene,0.4)'\" -vframes 1 \"{newThumbPath}\"",
-                UseShellExecute = false,
-                CreateNoWindow = true
-            }
+                    {
+                        FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffmpeg.exe",
+                        Arguments = $"-i \"{videoPath}\" -vf \"select='gt(scene,0.4)'\" -vframes 1 \"{newThumbPath}\"",
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    }
                 };
 
                 process.Start();
                 process.WaitForExit();
             }
 
-            // ---------------------------------------------------------
-            // Update DB
-            // ---------------------------------------------------------
             video.ThumbnailFileName = newThumb;
             await _context.SaveChangesAsync();
 
@@ -575,13 +636,13 @@ namespace VideoTube.Controllers
                 var probeProcess = new Process
                 {
                     StartInfo =
-            {
-                FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffprobe.exe",
-                Arguments = $"-v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 \"{videoPath}\"",
-                RedirectStandardOutput = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            }
+                    {
+                        FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffprobe.exe",
+                        Arguments = $"-v error -show_entries format=duration -of default:noprint_wrappers=1:nokey=1 \"{videoPath}\"",
+                        RedirectStandardOutput = true,
+                        UseShellExecute = false,
+                        CreateNoWindow = true
+                    }
                 };
 
                 probeProcess.Start();
@@ -599,6 +660,20 @@ namespace VideoTube.Controllers
             return RedirectToAction("Index");
         }
 
+        // ---------------------------------------------------------
+        // TAG SEARCH
+        // ---------------------------------------------------------
+        public async Task<IActionResult> Tag(string name)
+        {
+            var videos = await _context.VideoTags
+                .Where(vt => vt.Tag.Name == name)
+                .Select(vt => vt.Video)
+                .Include(v => v.Category)
+                .ToListAsync();
 
+            ViewBag.TagName = name;
+
+            return View(videos);
+        }
     }
 }
