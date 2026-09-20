@@ -599,6 +599,73 @@ namespace VideoTube.Controllers
             return RedirectToAction("Index");
         }
 
+        // GET: generate + show candidates
+        [HttpPost]
+        public IActionResult GenerateSmartThumbnails(int id)
+        {
+            var video = _context.Videos.Find(id);
+            if (video == null) return NotFound();
 
+            var videoPath = Path.Combine(_environment.WebRootPath, "videos", video.FileName);
+            if (!System.IO.File.Exists(videoPath)) return NotFound();
+
+            var thumbnailsDir = Path.Combine(_environment.WebRootPath, "thumbnails");
+            Directory.CreateDirectory(thumbnailsDir);
+
+            var timestamps = new[] { 5, 15, 30, 45 }; // seconds
+            var candidates = new List<string>();
+
+            int index = 0;
+            foreach (var t in timestamps)
+            {
+                var thumbFileName = $"{video.Id}_cand_{index}.jpg";
+                var thumbPath = Path.Combine(thumbnailsDir, thumbFileName);
+
+                var ffmpeg = new Process
+                {
+                    StartInfo =
+            {
+                FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffmpeg.exe",
+                Arguments = $"-ss {t} -i \"{videoPath}\" -vframes 1 -q:v 2 \"{thumbPath}\"",
+                UseShellExecute = false,
+                CreateNoWindow = true
+            }
+                };
+
+                ffmpeg.Start();
+                ffmpeg.WaitForExit();
+
+                if (System.IO.File.Exists(thumbPath))
+                    candidates.Add(thumbFileName);
+
+                index++;
+            }
+
+            // simple "smart" pick: middle candidate
+            var autoSelected = candidates.Skip(candidates.Count / 2).FirstOrDefault();
+
+            var vm = new SmartThumbnailViewModel
+            {
+                VideoId = video.Id,
+                VideoTitle = video.Title,
+                CandidateThumbnails = candidates,
+                AutoSelectedThumbnail = autoSelected
+            };
+
+            return View("SmartThumbnails", vm);
+        }
+
+        // POST: save chosen thumbnail
+        [HttpPost]
+        public IActionResult SaveSmartThumbnail(int videoId, string thumbnailFileName)
+        {
+            var video = _context.Videos.Find(videoId);
+            if (video == null) return NotFound();
+
+            video.ThumbnailFileName = thumbnailFileName;
+            _context.SaveChanges();
+
+            return RedirectToAction("Watch", new { id = videoId });
+        }
     }
 }

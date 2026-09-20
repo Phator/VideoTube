@@ -33,28 +33,38 @@
         <!-- Description -->
         <p class="lead">@Model.Description</p>
 
-        <!-- Action Buttons -->
-        <div class="mt-4 d-flex gap-2">
+<!-- Action Buttons -->
+<div class="mt-4 d-flex gap-2">
 
-            <button id="favoriteBtn"
-                    class="btn @(ViewBag.IsFavorited ? "btn-success" : "btn-outline-warning")"
-                    onclick="toggleFavorite(@Model.Id)">
-                @(ViewBag.IsFavorited ? "❤️ Favorited" : "⭐ Add to Favorites")
+    <button id="favoriteBtn"
+            class="btn @(ViewBag.IsFavorited ? "btn-success" : "btn-outline-warning")"
+            onclick="toggleFavorite(@Model.Id)">
+        @(ViewBag.IsFavorited ? "❤️ Favorited" : "⭐ Add to Favorites")
+    </button>
+
+    <a asp-action="Edit"
+       asp-route-id="@Model.Id"
+       class="btn btn-primary">
+        ✏️ Edit
+    </a>
+
+    <a asp-action="Delete"
+       asp-route-id="@Model.Id"
+       class="btn btn-danger">
+        🗑️ Delete
+    </a>
+
+    @if (User.IsInRole("Admin"))
+    {
+        <form asp-action="GenerateSmartThumbnails" method="post">
+            <input type="hidden" name="id" value="@Model.Id" />
+            <button class="btn btn-warning">
+                🧠 Smart Thumbnails
             </button>
+        </form>
+    }
 
-            <a asp-action="Edit"
-               asp-route-id="@Model.Id"
-               class="btn btn-primary">
-                ✏️ Edit
-            </a>
-
-            <a asp-action="Delete"
-               asp-route-id="@Model.Id"
-               class="btn btn-danger">
-                🗑️ Delete
-            </a>
-
-        </div>
+</div>
 
         @Html.AntiForgeryToken()
 

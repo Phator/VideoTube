@@ -1,0 +1,67 @@
+@model SmartThumbnailViewModel
+
+@{
+    ViewData["Title"] = "Smart Thumbnails";
+}
+
+<div class="container mt-4">
+    <h2 class="mb-3">
+        Smart Thumbnails for: @Model.VideoTitle
+    </h2>
+
+    <p class="text-muted">
+        Click a thumbnail to select it, then save.
+    </p>
+
+    <form asp-action="SaveSmartThumbnail" method="post">
+        <input type="hidden" name="videoId" value="@Model.VideoId" />
+        <input type="hidden" id="thumbnailFileName" name="thumbnailFileName"
+               value="@Model.AutoSelectedThumbnail" />
+
+        <div class="row">
+            @foreach (var thumb in Model.CandidateThumbnails)
+            {
+                var isSelected = thumb == Model.AutoSelectedThumbnail;
+
+                <div class="col-md-3 mb-3">
+                    <div class="card @(isSelected ? "border-primary" : "") thumb-card"
+                         data-thumb="@thumb" style="cursor:pointer;">
+                        <img src="~/thumbnails/@thumb"
+                             class="card-img-top"
+                             alt="Thumbnail" />
+                        <div class="card-body py-2 text-center">
+                            @if (isSelected)
+                            {
+                                <span class="badge bg-primary">Auto‑selected</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <button class="btn btn-success mt-3">
+            Save Selected Thumbnail
+        </button>
+
+        <a asp-action="Watch" asp-route-id="@Model.VideoId"
+           class="btn btn-secondary mt-3 ms-2">
+            Cancel
+        </a>
+    </form>
+</div>
+
+<script>
+    document.querySelectorAll('.thumb-card').forEach(card => {
+        card.addEventListener('click', () => {
+            document.querySelectorAll('.thumb-card')
+                .forEach(c => c.classList.remove('border-primary'));
+
+            card.classList.add('border-primary');
+
+            const fileName = card.getAttribute('data-thumb');
+            document.getElementById('thumbnailFileName').value = fileName;
+        });
+    });
+</script>
+
