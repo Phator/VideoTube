@@ -53,6 +53,24 @@
             @(masked ? "Description Hidden" : Model.Description)
         </p>
 
+        <!-- TAGS -->
+@if (Model.VideoTags != null && Model.VideoTags.Any(vt => vt.Tag != null))
+{
+    <div class="mt-3">
+        <strong>Tags:</strong>
+
+        @foreach (var tag in Model.VideoTags.Select(vt => vt.Tag))
+        {
+            <a asp-controller="Tag"
+               asp-action="Name"
+               asp-route-name="@tag.Name"
+               class="badge bg-secondary me-1">
+                @(masked ? "Hidden Tag" : tag.Name)
+            </a>
+        }
+    </div>
+}
+
         <!-- Action Buttons -->
         <div class="mt-4 d-flex gap-2">
 

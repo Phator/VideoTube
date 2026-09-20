@@ -1,0 +1,30 @@
+@model List<VideoTube.Models.Video>
+
+<h2>Videos tagged "@ViewBag.TagName"</h2>
+
+@if (!Model.Any())
+{
+    <p>No videos found for this tag.</p>
+}
+else
+{
+    foreach (var video in Model)
+    {
+        <a asp-controller="Video"
+           asp-action="Watch"
+           asp-route-id="@video.Id"
+           class="text-decoration-none text-dark">
+
+            <div class="card mb-3 shadow-sm">
+                <img src="@Url.Content($"~/thumbnails/{video.ThumbnailFileName}")"
+                     class="card-img-top"
+                     style="height:150px; object-fit:cover;" />
+
+                <div class="card-body py-2">
+                    <h6>@video.Title</h6>
+                    <small class="text-muted">@video.Duration • @video.Views Views</small>
+                </div>
+            </div>
+        </a>
+    }
+}
