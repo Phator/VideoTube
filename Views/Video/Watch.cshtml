@@ -81,12 +81,20 @@
                asp-route-id="@video.Id"
                class="text-decoration-none text-dark">
 
-                <div class="card mb-3 shadow-sm">
+<div class="card mb-3 shadow-sm">
 
-                    <img src="/thumbnails/@video.ThumbnailFileName"
-                         class="card-img-top"
-                         alt="@video.Title"
-                         style="height: 150px; object-fit: cover;" />
+    <div class="thumbnail-wrapper position-relative">
+
+        @if ((DateTime.Now - video.UploadDate).TotalDays <= 3)
+        {
+            <div class="new-ribbon">NEW</div>
+        }
+
+        <img src="/thumbnails/@video.ThumbnailFileName"
+             class="card-img-top"
+             alt="@video.Title"
+             style="height: 150px; object-fit: cover;" />
+    </div>
 
                     <div class="card-body py-2">
                         <h6 class="mb-1">@video.Title</h6>

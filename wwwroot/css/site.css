@@ -29,3 +29,67 @@ body {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
   text-align: start;
 }
+
+@keyframes newPulse {
+    0% {
+        transform: scale(1);
+        box-shadow: 0 0 6px rgba(255, 0, 0, 0.4);
+    }
+    50% {
+        transform: scale(1.08);
+        box-shadow: 0 0 12px rgba(255, 0, 0, 0.6);
+    }
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 6px rgba(255, 0, 0, 0.4);
+    }
+}
+
+.new-ribbon {
+    position: absolute;
+    top: 0;
+    left: 0;
+    background: #ff0000;
+    color: #fff;
+    padding: 4px 12px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    border-bottom-right-radius: 6px;
+    z-index: 9999;
+    animation: newPulse 1.6s ease-in-out infinite;
+}
+
+.thumbnail-wrapper {
+    position: relative;
+    display: block;
+    z-index: 1;
+}
+
+.play-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    transition: 0.25s ease;
+    z-index: 100;
+}
+
+.play-icon {
+    font-size: 64px;
+    color: white;
+    text-shadow: 0 0 10px black;
+}
+
+.thumbnail-wrapper:hover .play-overlay {
+    opacity: 1;
+}
+
+.thumbnail-wrapper:hover img {
+    filter: brightness(70%);
+}
+
+.card-img-top {
+    position: relative;
+    z-index: 1;
+}
