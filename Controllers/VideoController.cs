@@ -608,27 +608,32 @@ namespace VideoTube.Controllers
             return RedirectToAction("Index");
         }
 
-        // GET: generate + show candidates
+        // GET + POST: Generate smart thumbnail candidates
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public IActionResult GenerateSmartThumbnails(int id)
         {
             var video = _context.Videos.Find(id);
-            if (video == null) return NotFound();
+            if (video == null)
+                return NotFound();
 
             var videoPath = Path.Combine(_environment.WebRootPath, "videos", video.FileName);
-            if (!System.IO.File.Exists(videoPath)) return NotFound();
+            if (!System.IO.File.Exists(videoPath))
+                return NotFound();
 
             var thumbnailsDir = Path.Combine(_environment.WebRootPath, "thumbnails");
             Directory.CreateDirectory(thumbnailsDir);
 
-            var timestamps = new[] { 5, 15, 30, 45 }; // seconds
+            // Candidate timestamps (you can adjust these)
+            int[] timestamps = { 5, 15, 30, 45 };
+
             var candidates = new List<string>();
 
-            int index = 0;
-            foreach (var t in timestamps)
+            for (int i = 0; i < timestamps.Length; i++)
             {
-                var thumbFileName = $"{video.Id}_cand_{index}.jpg";
-                var thumbPath = Path.Combine(thumbnailsDir, thumbFileName);
+                int t = timestamps[i];
+                string thumbFileName = $"{video.Id}_cand_{i}.jpg";
+                string thumbPath = Path.Combine(thumbnailsDir, thumbFileName);
 
                 var ffmpeg = new Process
                 {
@@ -637,6 +642,8 @@ namespace VideoTube.Controllers
                 FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffmpeg.exe",
                 Arguments = $"-ss {t} -i \"{videoPath}\" -vframes 1 -q:v 2 \"{thumbPath}\"",
                 UseShellExecute = false,
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
                 CreateNoWindow = true
             }
                 };
@@ -646,12 +653,12 @@ namespace VideoTube.Controllers
 
                 if (System.IO.File.Exists(thumbPath))
                     candidates.Add(thumbFileName);
-
-                index++;
             }
 
-            // simple "smart" pick: middle candidate
-            var autoSelected = candidates.Skip(candidates.Count / 2).FirstOrDefault();
+            // Auto-select the middle candidate (simple heuristic)
+            string autoSelected = candidates.Count > 0
+                ? candidates[candidates.Count / 2]
+                : null;
 
             var vm = new SmartThumbnailViewModel
             {
@@ -664,12 +671,15 @@ namespace VideoTube.Controllers
             return View("SmartThumbnails", vm);
         }
 
-        // POST: save chosen thumbnail
+
+        // POST: Save chosen thumbnail
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public IActionResult SaveSmartThumbnail(int videoId, string thumbnailFileName)
         {
             var video = _context.Videos.Find(videoId);
-            if (video == null) return NotFound();
+            if (video == null)
+                return NotFound();
 
             video.ThumbnailFileName = thumbnailFileName;
             _context.SaveChanges();
