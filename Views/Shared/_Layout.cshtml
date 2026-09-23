@@ -108,6 +108,14 @@
                 <!-- RIGHT NAV -->
                 <ul class="navbar-nav">
 
+                    <!-- 🌙 DARK MODE TOGGLE -->
+                    <li class="nav-item">
+                        <button id="darkModeToggle"
+                                class="btn btn-sm btn-outline-light me-3">
+                            🌙 Dark Mode
+                        </button>
+                    </li>
+
                     @if (User.Identity?.IsAuthenticated ?? false)
                     {
                         <li class="nav-item">
@@ -167,7 +175,51 @@
 <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
 <script src="~/js/site.js" asp-append-version="true"></script>
 
+<!-- 🌙 DARK MODE SCRIPT -->
+<script>
+    const toggle = document.getElementById("darkModeToggle");
+
+    // 1. Check saved preference first
+    const savedTheme = localStorage.getItem("theme");
+
+    if (savedTheme === "dark") {
+        document.documentElement.classList.add("dark-mode");
+        toggle.textContent = "☀️ Light Mode";
+    } 
+    else if (savedTheme === "light") {
+        document.documentElement.classList.remove("dark-mode");
+        toggle.textContent = "🌙 Dark Mode";
+    }
+    else {
+        // 2. No saved preference → auto-detect system theme
+        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+        if (prefersDark) {
+            document.documentElement.classList.add("dark-mode");
+            toggle.textContent = "☀️ Light Mode";
+        } else {
+            document.documentElement.classList.remove("dark-mode");
+            toggle.textContent = "🌙 Dark Mode";
+        }
+    }
+
+    // 3. Toggle button logic
+    toggle.addEventListener("click", () => {
+        document.documentElement.classList.toggle("dark-mode");
+
+        if (document.documentElement.classList.contains("dark-mode")) {
+            localStorage.setItem("theme", "dark");
+            toggle.textContent = "☀️ Light Mode";
+        } else {
+            localStorage.setItem("theme", "light");
+            toggle.textContent = "🌙 Dark Mode";
+        }
+    });
+</script>
+
 @await RenderSectionAsync("Scripts", required: false)
 
 </body>
 </html>
+
+
