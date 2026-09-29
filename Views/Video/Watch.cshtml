@@ -5,10 +5,8 @@
     <!-- Main Video Section -->
     <div class="col-md-8">
 
-        <!-- Title -->
         <h2 class="mb-2">@Model.Title</h2>
 
-        <!-- Metadata -->
         <div class="text-muted mb-3">
             @if (Model.Category != null)
             {
@@ -21,50 +19,63 @@
             <span>@Model.Views Views</span>
         </div>
 
-        <!-- Video Player -->
+        <!-- Single Video Player -->
         <video id="videoPlayer"
                width="100%"
                controls
                class="mb-4">
             <source src="/videos/@Model.FileName" type="video/mp4" />
-            Your browser does not support HTML5 video.
         </video>
 
-        <!-- Description -->
         <p class="lead">@Model.Description</p>
 
-<!-- Action Buttons -->
-<div class="mt-4 d-flex gap-2">
+        <!-- Action Buttons -->
+        <div class="mt-4 d-flex gap-2">
 
-    <button id="favoriteBtn"
-            class="btn @(ViewBag.IsFavorited ? "btn-success" : "btn-outline-warning")"
-            onclick="toggleFavorite(@Model.Id)">
-        @(ViewBag.IsFavorited ? "❤️ Favorited" : "⭐ Add to Favorites")
-    </button>
-
-    <a asp-action="Edit"
-       asp-route-id="@Model.Id"
-       class="btn btn-primary">
-        ✏️ Edit
-    </a>
-
-    <a asp-action="Delete"
-       asp-route-id="@Model.Id"
-       class="btn btn-danger">
-        🗑️ Delete
-    </a>
-
-    @if (User.IsInRole("Admin"))
-    {
-        <form asp-action="GenerateSmartThumbnails" method="post">
-            <input type="hidden" name="id" value="@Model.Id" />
-            <button class="btn btn-warning">
-                🧠 Smart Thumbnails
+            <button id="favoriteBtn"
+                    class="btn @(ViewBag.IsFavorited ? "btn-success" : "btn-outline-warning")"
+                    onclick="toggleFavorite(@Model.Id)">
+                @(ViewBag.IsFavorited ? "❤️ Favorited" : "⭐ Add to Favorites")
             </button>
-        </form>
-    }
 
-</div>
+            <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">✏️ Edit</a>
+            <a asp-action="Delete" asp-route-id="@Model.Id" class="btn btn-danger">🗑️ Delete</a>
+
+            @if (User.IsInRole("Admin"))
+            {
+                <form asp-action="GenerateSmartThumbnails" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="id" value="@Model.Id" />
+                    <button class="btn btn-warning">🧠 Smart Thumbnails</button>
+                </form>
+            }
+
+            <!-- Motion Mode -->
+            <button class="btn btn-secondary lift-hover glow-hover"
+                    onclick="enableMotionMode()">
+                📱 Motion Mode
+            </button>
+
+            <button class="btn btn-info lift-hover glow-hover"
+            onclick="recenterView()">
+            🎯 Recenter
+            </button>
+
+            <!-- VR Mode -->
+            <button id="vrBtn"
+                    class="btn btn-dark lift-hover glow-hover"
+                    onclick="enterVR()"
+                    style="display:none;">
+                🥽 Enter VR
+            </button>
+
+            <!-- Fullscreen -->
+            <button class="btn btn-dark lift-hover glow-hover"
+                    onclick="goFullscreen()">
+                ⛶ Fullscreen
+            </button>
+
+        </div>
 
         @Html.AntiForgeryToken()
 
@@ -72,7 +83,6 @@
 
     <!-- Related Videos -->
     <div class="col-md-4">
-
         <h4 class="mb-3">Related Videos</h4>
 
         @foreach (var video in ViewBag.RelatedVideos)
@@ -81,20 +91,20 @@
                asp-route-id="@video.Id"
                class="text-decoration-none text-dark">
 
-<div class="card mb-3 shadow-sm">
+                <div class="card mb-3 shadow-sm">
 
-    <div class="thumbnail-wrapper position-relative">
+                    <div class="thumbnail-wrapper position-relative">
 
-        @if ((DateTime.Now - video.UploadDate).TotalDays <= 3)
-        {
-            <div class="new-ribbon">NEW</div>
-        }
+                        @if ((DateTime.Now - video.UploadDate).TotalDays <= 3)
+                        {
+                            <div class="new-ribbon">NEW</div>
+                        }
 
-        <img src="/thumbnails/@video.ThumbnailFileName"
-             class="card-img-top"
-             alt="@video.Title"
-             style="height: 150px; object-fit: cover;" />
-    </div>
+                        <img src="/thumbnails/@video.ThumbnailFileName"
+                             class="card-img-top"
+                             alt="@video.Title"
+                             style="height: 150px; object-fit: cover;" />
+                    </div>
 
                     <div class="card-body py-2">
                         <h6 class="mb-1">@video.Title</h6>
@@ -107,19 +117,17 @@
 
             </a>
         }
-
     </div>
 
 </div>
 
+<!-- Progress + Favorites -->
 <script>
     const video = document.getElementById("videoPlayer");
     const savedPosition = @(ViewBag.Progress ?? 0);
 
     video.addEventListener("loadedmetadata", () => {
-        if (savedPosition > 0) {
-            video.currentTime = savedPosition;
-        }
+        if (savedPosition > 0) video.currentTime = savedPosition;
     });
 
     setInterval(() => {
@@ -145,10 +153,9 @@
             },
             body: JSON.stringify({ id: videoId })
         })
-        .then(response => response.json())
+        .then(r => r.json())
         .then(data => {
             const btn = document.getElementById('favoriteBtn');
-
             if (data.favorited) {
                 btn.classList.remove('btn-outline-warning');
                 btn.classList.add('btn-success');
@@ -160,4 +167,506 @@
             }
         });
     }
+</script>
+
+<!-- THREE.js + WebXR VR/Motion/SBS Engine -->
+<script type="module">
+
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.module.js";
+import { VRButton } from "https://cdn.jsdelivr.net/npm/three@0.152.2/examples/jsm/webxr/VRButton.js";
+
+const video = document.getElementById("videoPlayer");
+
+let renderer, scene, camera, sphere;
+let motionEnabled = false;
+
+let yawOffset = 0;
+let lastAlpha = 0;
+
+let dragYaw = 0;
+let dragPitch = 0;
+
+/* MOTION PERMISSION */
+
+async function requestMotionPermission() {
+
+    if (
+        typeof DeviceMotionEvent !== "undefined" &&
+        typeof DeviceMotionEvent.requestPermission === "function"
+    ) {
+        const response =
+            await DeviceMotionEvent.requestPermission();
+
+        return response === "granted";
+    }
+
+    return true;
+}
+
+/* ORIENTATION */
+
+const deviceQuat = new THREE.Quaternion();
+const screenQuat = new THREE.Quaternion();
+const worldQuat = new THREE.Quaternion();
+const finalQuat = new THREE.Quaternion();
+
+function applyDeviceOrientation(alpha, beta, gamma) {
+
+    lastAlpha = alpha || 0;
+
+    const a = THREE.MathUtils.degToRad(
+        (alpha || 0) - yawOffset
+    );
+
+    const b = THREE.MathUtils.degToRad(beta || 0);
+    const c = THREE.MathUtils.degToRad(gamma || 0);
+
+    const euler = new THREE.Euler(
+        b,
+        a,
+        -c,
+        "YXZ"
+    );
+
+    deviceQuat.setFromEuler(euler);
+
+    const screenOrientation =
+        screen.orientation?.angle ??
+        window.orientation ??
+        0;
+
+    screenQuat.setFromAxisAngle(
+        new THREE.Vector3(0, 0, 1),
+        -THREE.MathUtils.degToRad(screenOrientation)
+    );
+
+    finalQuat.copy(worldQuat);
+    finalQuat.multiply(deviceQuat);
+    finalQuat.multiply(screenQuat);
+
+    /* Portrait phone correction */
+
+    if (window.innerHeight > window.innerWidth) {
+
+        const portraitCorrection =
+            new THREE.Quaternion();
+
+        portraitCorrection.setFromAxisAngle(
+            new THREE.Vector3(0, 0, 1),
+            Math.PI / 2
+        );
+
+        finalQuat.multiply(portraitCorrection);
+    }
+
+/* Drag offset */
+
+const dragQuat = new THREE.Quaternion();
+const dragEuler = new THREE.Euler(dragPitch, dragYaw, 0, "YXZ");
+dragQuat.setFromEuler(dragEuler);
+
+/* FIX REVERSED MOTION — invert yaw & pitch */
+const invertQuat = new THREE.Quaternion();
+const invertEuler = new THREE.Euler(-b, -a, 0, "YXZ");
+invertQuat.setFromEuler(invertEuler);
+
+finalQuat.multiply(invertQuat);
+finalQuat.multiply(dragQuat);
+
+/* HORIZON LEVEL FIX — remove roll (gamma) */
+const horizonQuat = new THREE.Quaternion();
+
+// Use only yaw (a) and pitch (b), ignore roll entirely
+const horizonEuler = new THREE.Euler(
+    b,   // pitch
+    a,   // yaw
+    0,   // roll removed
+    "YXZ"
+);
+
+horizonQuat.setFromEuler(horizonEuler);
+
+// Replace roll-influenced orientation with horizon-stable one
+finalQuat.copy(horizonQuat);
+
+sphere.quaternion.copy(finalQuat);
+
+/* RECENTER */
+
+function recenterView() {
+
+    yawOffset = lastAlpha;
+
+    dragYaw = 0;
+    dragPitch = 0;
+
+    alert("View Re-centered");
+}
+
+/* TEXTURE MODES */
+
+function setMotionModeTexture() {
+
+    if (!sphere?.material?.map)
+        return;
+
+    // Left eye only
+    sphere.material.map.repeat.set(0.5, 1);
+    sphere.material.map.offset.set(0, 0);
+
+    sphere.material.map.needsUpdate = true;
+}
+
+
+function setVRModeTexture() {
+
+    if (!sphere?.material?.map)
+        return;
+
+    // Full SBS
+    sphere.material.map.repeat.set(1, 1);
+    sphere.material.map.offset.set(0, 0);
+
+    sphere.material.map.needsUpdate = true;
+}
+
+
+/* DRAG CONTROLS */
+
+let isDragging = false;
+let lastX = 0;
+let lastY = 0;
+
+function startDrag(event) {
+
+    isDragging = true;
+
+    const p =
+        event.touches
+            ? event.touches[0]
+            : event;
+
+    lastX = p.clientX;
+    lastY = p.clientY;
+}
+
+function drag(event) {
+
+    if (!isDragging)
+        return;
+
+    const p =
+        event.touches
+            ? event.touches[0]
+            : event;
+
+    const deltaX =
+        p.clientX - lastX;
+
+    const deltaY =
+        p.clientY - lastY;
+
+    dragYaw -= deltaX * 0.005;
+    dragPitch -= deltaY * 0.005;
+
+    dragPitch = Math.max(
+        -Math.PI / 2,
+        Math.min(
+            Math.PI / 2,
+            dragPitch
+        )
+    );
+
+    lastX = p.clientX;
+    lastY = p.clientY;
+}
+
+function endDrag() {
+
+    isDragging = false;
+}
+
+function enableDragControls() {
+
+    const canvas = renderer.domElement;
+
+    canvas.addEventListener(
+        "mousedown",
+        startDrag
+    );
+
+    canvas.addEventListener(
+        "mousemove",
+        drag
+    );
+
+    canvas.addEventListener(
+        "mouseup",
+        endDrag
+    );
+
+    canvas.addEventListener(
+        "mouseleave",
+        endDrag
+    );
+
+    canvas.addEventListener(
+        "touchstart",
+        startDrag,
+        { passive: true }
+    );
+
+    canvas.addEventListener(
+        "touchmove",
+        drag,
+        { passive: true }
+    );
+
+    canvas.addEventListener(
+        "touchend",
+        endDrag
+    );
+}
+
+/* FULLSCREEN */
+
+function goFullscreenInternal() {
+
+    const canvas = renderer.domElement;
+
+    if (canvas.requestFullscreen) {
+        canvas.requestFullscreen();
+    }
+    else if (canvas.webkitRequestFullscreen) {
+        canvas.webkitRequestFullscreen();
+    }
+}
+
+/* INIT PLAYER */
+
+function initVRPlayer() {
+
+    renderer =
+        new THREE.WebGLRenderer({
+            antialias: true
+        });
+
+    renderer.xr.enabled = true;
+
+    document.body.appendChild(
+        VRButton.createButton(renderer)
+    );
+
+    scene = new THREE.Scene();
+
+    camera =
+        new THREE.PerspectiveCamera(
+            75,
+            window.innerWidth /
+            window.innerHeight,
+            1,
+            1100
+        );
+
+    const texture =
+        new THREE.VideoTexture(video);
+
+    texture.colorSpace =
+        THREE.SRGBColorSpace;
+
+    const geometry =
+        new THREE.SphereGeometry(
+            500,
+            60,
+            40
+        );
+
+    geometry.scale(-1, 1, 1);
+
+    const material =
+        new THREE.MeshBasicMaterial({
+            map: texture
+        });
+
+    sphere =
+        new THREE.Mesh(
+            geometry,
+            material
+        );
+
+    scene.add(sphere);
+
+    renderer.setSize(
+        window.innerWidth,
+        window.innerHeight
+    );
+
+    renderer.setAnimationLoop(() => {
+
+        if (
+            motionEnabled ||
+            renderer.xr.isPresenting
+        ) {
+            renderer.render(
+                scene,
+                camera
+            );
+        }
+    });
+
+    window.addEventListener(
+        "resize",
+        () => {
+
+            camera.aspect =
+                window.innerWidth /
+                window.innerHeight;
+
+            camera.updateProjectionMatrix();
+
+            renderer.setSize(
+                window.innerWidth,
+                window.innerHeight
+            );
+        }
+    );
+}
+
+initVRPlayer();
+
+/* MOTION MODE */
+
+let orientationRegistered = false;
+
+async function enableMotionModeInternal() {
+
+    const ok =
+        await requestMotionPermission();
+
+    if (!ok) {
+
+        alert(
+            "Motion permission denied."
+        );
+
+        return;
+    }
+
+    motionEnabled = true;
+
+    video.style.display = "none";
+
+    // LEFT EYE ONLY
+    setMotionModeTexture();
+
+    if (!renderer.domElement.parentNode) {
+
+        document.body.appendChild(
+            renderer.domElement
+        );
+    }
+
+    renderer.setSize(
+        window.innerWidth,
+        window.innerHeight
+    );
+
+    enableDragControls();
+
+    // auto-center after sensor settles
+
+    setTimeout(() => {
+        recenterView();
+    }, 1000);
+
+    if (!orientationRegistered) {
+
+        window.addEventListener(
+            "deviceorientation",
+            (event) => {
+
+                if (!motionEnabled)
+                    return;
+
+                applyDeviceOrientation(
+                    event.alpha,
+                    event.beta,
+                    event.gamma
+                );
+            },
+            true
+        );
+
+        orientationRegistered = true;
+    }
+
+    alert(
+        "Motion Mode Enabled. Hold phone upright."
+    );
+}
+
+/* VR MODE */
+
+async function enterVRInternal() {
+
+    motionEnabled = false;
+
+    video.style.display = "none";
+
+    // Restore full SBS for headset viewing
+    setVRModeTexture();
+
+    if (!renderer.domElement.parentNode) {
+
+        document.body.appendChild(
+            renderer.domElement
+        );
+    }
+
+    renderer.setSize(
+        window.innerWidth,
+        window.innerHeight
+    );
+
+    const session =
+        await navigator.xr.requestSession(
+            "immersive-vr"
+        );
+
+    renderer.xr.setSession(
+        session
+    );
+}
+
+/* VR DETECTION */
+
+navigator.xr
+    ?.isSessionSupported(
+        "immersive-vr"
+    )
+    .then(supported => {
+
+        if (supported) {
+
+            document
+                .getElementById("vrBtn")
+                .style.display =
+                "inline-block";
+        }
+    });
+
+/* EXPOSE */
+
+window.enableMotionMode =
+    enableMotionModeInternal;
+
+window.enterVR =
+    enterVRInternal;
+
+window.goFullscreen =
+    goFullscreenInternal;
+
+window.recenterView =
+    recenterView;
+
 </script>

@@ -611,28 +611,26 @@ namespace VideoTube.Controllers
         // GET + POST: Generate smart thumbnail candidates
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult GenerateSmartThumbnails(int id)
+        public async Task<IActionResult> GenerateSmartThumbnails(int id)
         {
-            var video = _context.Videos.Find(id);
+            var video = await _context.Videos.FindAsync(id);
             if (video == null)
                 return NotFound();
 
-            var videoPath = Path.Combine(_environment.WebRootPath, "videos", video.FileName);
+            string videoPath = Path.Combine(_environment.WebRootPath, "videos", video.FileName);
             if (!System.IO.File.Exists(videoPath))
                 return NotFound();
 
-            var thumbnailsDir = Path.Combine(_environment.WebRootPath, "thumbnails");
+            string thumbnailsDir = Path.Combine(_environment.WebRootPath, "thumbnails");
             Directory.CreateDirectory(thumbnailsDir);
 
-            // Candidate timestamps (you can adjust these)
+            // Candidate timestamps
             int[] timestamps = { 5, 15, 30, 45 };
-
             var candidates = new List<string>();
 
-            for (int i = 0; i < timestamps.Length; i++)
+            foreach (int t in timestamps)
             {
-                int t = timestamps[i];
-                string thumbFileName = $"{video.Id}_cand_{i}.jpg";
+                string thumbFileName = $"{video.Id}_cand_{t}.jpg";
                 string thumbPath = Path.Combine(thumbnailsDir, thumbFileName);
 
                 var ffmpeg = new Process
@@ -649,13 +647,23 @@ namespace VideoTube.Controllers
                 };
 
                 ffmpeg.Start();
-                ffmpeg.WaitForExit();
+
+                // MUST read both streams to avoid deadlock
+                string stderr = await ffmpeg.StandardError.ReadToEndAsync();
+                string stdout = await ffmpeg.StandardOutput.ReadToEndAsync();
+
+                await ffmpeg.WaitForExitAsync();
+
+                // Optional logging (helps diagnose issues)
+                Debug.WriteLine($"FFmpeg @ {t}s exit code: {ffmpeg.ExitCode}");
+                if (!string.IsNullOrWhiteSpace(stderr))
+                    Debug.WriteLine($"FFmpeg stderr: {stderr}");
 
                 if (System.IO.File.Exists(thumbPath))
                     candidates.Add(thumbFileName);
             }
 
-            // Auto-select the middle candidate (simple heuristic)
+            // Auto-select the middle candidate
             string autoSelected = candidates.Count > 0
                 ? candidates[candidates.Count / 2]
                 : null;
