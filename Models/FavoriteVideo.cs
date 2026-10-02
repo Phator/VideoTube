@@ -11,6 +11,7 @@ namespace VideoTube.Models
 
         public ApplicationUser? User { get; set; }
 
+        [Required]
         public int VideoId { get; set; }
 
         public Video? Video { get; set; }
