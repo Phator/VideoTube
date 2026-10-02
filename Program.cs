@@ -6,6 +6,15 @@ using VideoTube.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Logging
+builder.Services.AddLogging(config =>
+{
+    config.ClearProviders();
+    config.AddConsole();
+    config.AddDebug();
+    config.AddEventSourceLogger();
+});
+
 // MVC
 builder.Services.AddControllersWithViews();
 

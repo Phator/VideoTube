@@ -794,11 +794,12 @@ namespace VideoTube.Controllers
             // ---------------------------------------------------------
             // Get video duration (for clamping timestamps)
             // ---------------------------------------------------------
+            string ffprobePath = _configuration["FFmpeg:FfprobePath"] ?? "ffprobe";
             var probe = new Process
             {
                 StartInfo =
         {
-            FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffprobe.exe",
+            FileName = ffprobePath,
             Arguments = $"-v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 \"{videoPath}\"",
             RedirectStandardOutput = true,
             UseShellExecute = false,
@@ -836,11 +837,12 @@ namespace VideoTube.Controllers
                 TimeSpan ts = TimeSpan.FromSeconds(requestedSeconds);
                 string timestamp = ts.ToString(@"hh\:mm\:ss");
 
+                string ffmpegPath = _configuration["FFmpeg:FfmpegPath"] ?? "ffmpeg";
                 var process = new Process
                 {
                     StartInfo =
             {
-                FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffmpeg.exe",
+                FileName = ffmpegPath,
                 Arguments = $"-i \"{videoPath}\" -ss {timestamp} -vframes 1 \"{newThumbPath}\"",
                 UseShellExecute = false,
                 CreateNoWindow = true
@@ -855,11 +857,12 @@ namespace VideoTube.Controllers
                 // ---------------------------------------------------------
                 // 3. Scene-detect regeneration (default)
                 // ---------------------------------------------------------
+                string ffmpegPath = _configuration["FFmpeg:FfmpegPath"] ?? "ffmpeg";
                 var process = new Process
                 {
                     StartInfo =
             {
-                FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffmpeg.exe",
+                FileName = ffmpegPath,
                 Arguments = $"-i \"{videoPath}\" -vf \"select='gt(scene,0.4)'\" -vframes 1 \"{newThumbPath}\"",
                 UseShellExecute = false,
                 CreateNoWindow = true
@@ -894,11 +897,12 @@ namespace VideoTube.Controllers
                 if (!System.IO.File.Exists(videoPath))
                     continue;
 
+                string ffprobePath = _configuration["FFmpeg:FfprobePath"] ?? "ffprobe";
                 var probeProcess = new Process
                 {
                     StartInfo =
             {
-                FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffprobe.exe",
+                FileName = ffprobePath,
                 Arguments = $"-v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 \"{videoPath}\"",
                 RedirectStandardOutput = true,
                 UseShellExecute = false,
@@ -946,11 +950,12 @@ namespace VideoTube.Controllers
                 string thumbFileName = $"{video.Id}_cand_{t}.jpg";
                 string thumbPath = Path.Combine(thumbnailsDir, thumbFileName);
 
+                string ffmpegPath = _configuration["FFmpeg:FfmpegPath"] ?? "ffmpeg";
                 var ffmpeg = new Process
                 {
                     StartInfo =
             {
-                FileName = @"C:\Users\andre\AppData\Local\Microsoft\WinGet\Links\ffmpeg.exe",
+                FileName = ffmpegPath,
                 Arguments = $"-ss {t} -i \"{videoPath}\" -vframes 1 -q:v 2 \"{thumbPath}\"",
                 UseShellExecute = false,
                 RedirectStandardError = true,
@@ -979,7 +984,7 @@ namespace VideoTube.Controllers
             // Auto-select the middle candidate
             string autoSelected = candidates.Count > 0
                 ? candidates[candidates.Count / 2]
-                : null;
+                : "";
 
             var vm = new SmartThumbnailViewModel
             {
