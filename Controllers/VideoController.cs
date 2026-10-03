@@ -925,6 +925,39 @@ namespace VideoTube.Controllers
             return RedirectToAction("Index");
         }
 
+        //ffmpeg test
+
+        public IActionResult TestFfmpeg()
+        {
+            try
+            {
+                string ffmpegPath = _configuration["FFmpeg:FfmpegPath"];
+
+                var p = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = ffmpegPath,
+                        Arguments = "-version",
+                        RedirectStandardOutput = true,
+                        UseShellExecute = false
+                    }
+                };
+
+                p.Start();
+
+                string output = p.StandardOutput.ReadToEnd();
+
+                p.WaitForExit();
+
+                return Content(output);
+            }
+            catch (Exception ex)
+            {
+                return Content(ex.ToString());
+            }
+        }
+
         // GET + POST: Generate smart thumbnail candidates
         [HttpPost]
         [ValidateAntiForgeryToken]
